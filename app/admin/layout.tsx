@@ -1,9 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import AdminSidebar from './components/AdminSidebar';
-import NotificationSystem from './components/NotificationSystem';
+import { useApp } from '../context/AppContext';
 
 export default function AdminLayout({
   children,
@@ -11,18 +7,15 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [authorized, setAuthorized] = useState(false);
+  const { currentUser, loadingAuth } = useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const isAdmin = localStorage.getItem('isAdmin');
-    if (!isAdmin) {
+    if (!loadingAuth && !currentUser) {
       router.push('/login');
-    } else {
-      setAuthorized(true);
     }
-  }, [router]);
+  }, [currentUser, loadingAuth, router]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -31,7 +24,15 @@ export default function AdminLayout({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  if (!authorized) return null;
+  if (loadingAuth) {
+      return (
+          <div className="flex bg-[#0a0a0a] min-h-screen text-white items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+          </div>
+      );
+  }
+
+  if (!currentUser) return null;
 
   return (
     <div className="flex bg-[#0a0a0a] min-h-screen text-white">

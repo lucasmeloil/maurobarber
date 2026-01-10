@@ -48,7 +48,9 @@ interface AppContextType {
   addCustomRevenue: (revenue: Omit<CustomRevenue, 'id'>) => Promise<boolean>; // Function to add revenue
   deleteCustomRevenue: (id: string) => Promise<boolean>;
   isSlotAvailable: (date: string, time: string) => boolean;
-  unreadNotifications: number;
+  loadingAuth: boolean;
+  currentUser: any;
+  logout: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -60,14 +62,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [customRevenues, setCustomRevenues] = useState<CustomRevenue[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
   // Auth State Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
+      setLoadingAuth(false);
     });
     return () => unsubscribe();
   }, []);
+
+  const logout = async () => {
+    await auth.signOut();
+    localStorage.removeItem('isAdmin');
+    setCurrentUser(null);
+  };
 
   // Services Listener
   useEffect(() => {
@@ -234,7 +244,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deleteService,
       addCustomRevenue,
       deleteCustomRevenue,
-      unreadNotifications 
+      unreadNotifications,
+      loadingAuth,
+      currentUser,
+      logout
     }}>
       {children}
     </AppContext.Provider>
