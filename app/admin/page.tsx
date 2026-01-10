@@ -180,7 +180,7 @@ export default function DashboardPage() {
                         <Tooltip 
                             contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '8px' }}
                             itemStyle={{ color: '#fff' }}
-                            formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Faturamento']}
+                            formatter={(value: number | undefined) => [`R$ ${(value ?? 0).toFixed(2)}`, 'Faturamento']}
                         />
                         <Bar 
                             dataKey="faturamento" 
