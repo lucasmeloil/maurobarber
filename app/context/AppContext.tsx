@@ -51,6 +51,7 @@ interface AppContextType {
   loadingAuth: boolean;
   currentUser: any;
   logout: () => Promise<void>;
+  unreadNotifications: number;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
