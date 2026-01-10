@@ -17,37 +17,48 @@ export default function ServicesAdminPage() {
     setIsAdding(false);
   };
 
-  const handeDelete = (id: string, name: string) => {
+  const handeDelete = async (id: string, name: string) => {
     if(confirm(`Excluir o serviço "${name}"?`)) {
-        deleteService(id);
-        showToast('Serviço excluído com sucesso!', 'success');
+        const success = await deleteService(id);
+        if(success) showToast('Serviço excluído com sucesso!', 'success');
+        else showToast('Erro ao excluir serviço.', 'error');
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if(!formData.name || !formData.price || !formData.duration) {
         showToast('Preencha todos os campos!', 'error');
         return;
     }
 
+    let success = false;
     if (editingId) {
-        updateService(editingId, {
+        success = await updateService(editingId, {
             name: formData.name,
             price: parseFloat(formData.price),
             duration: formData.duration
         });
-        showToast('Serviço atualizado com sucesso!', 'success');
-        setEditingId(null);
+        if(success) {
+            showToast('Serviço atualizado com sucesso!', 'success');
+            setEditingId(null);
+        }
     } else {
-        addService({
+        success = await addService({
             name: formData.name,
             price: parseFloat(formData.price),
             duration: formData.duration
         });
-        showToast('Serviço criado com sucesso!', 'success');
-        setIsAdding(false);
+        if(success) {
+            showToast('Serviço criado com sucesso!', 'success');
+            setIsAdding(false);
+        }
     }
-    setFormData({ name: '', price: '0', duration: '' });
+    
+    if(!success) {
+        showToast('Erro ao salvar serviço.', 'error');
+    } else {
+        setFormData({ name: '', price: '0', duration: '' });
+    }
   };
 
   return (
