@@ -33,7 +33,7 @@ export default function Footer() {
         <div>
           <h4 className="text-black font-bold mb-4">Horários</h4>
           <ul className="space-y-2 text-sm">
-            <li className="flex justify-between"><span>Seg - Sex</span> <span>09:00 - 20:00</span></li>
+            <li className="flex justify-between"><span>Seg - Sex</span> <span>08:00 - 18:00</span></li>
             <li className="flex justify-between"><span>Sábado</span> <span>08:00 - 18:00</span></li>
             <li className="flex justify-between"><span>Domingo</span> <span>Fechado</span></li>
           </ul>
@@ -47,7 +47,7 @@ export default function Footer() {
             <Link href="#" className="hover:text-black transition-colors"><Twitter size={20} /></Link>
           </div>
           <div className="mt-6 flex flex-col gap-2">
-             <p className="text-xs text-gray-500">Rua Exemplo, 123 — Cidade/UF</p>
+             <p className="text-xs text-gray-500">Rua Josué Passos, 821</p>
              <p className="text-xs text-gray-500 font-bold hover:text-black transition-colors">
                 <a href="https://wa.me/557999914079" target="_blank" rel="noopener noreferrer">
                     +55 (79) 99914-079

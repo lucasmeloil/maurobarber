@@ -20,11 +20,11 @@ export default function ContactPage() {
              <p className="text-gray-400 group-hover:text-white transition-colors">@maurobarber</p>
           </Link>
           
-          <div className="flex flex-col items-center text-center p-8 bg-[#111] border border-white/5 rounded-2xl cursor-default hover:-translate-y-2 transition-transform shadow-lg">
-             <MapPin size={48} className="mb-6 text-white"/>
+          <a href="https://www.google.com/maps/search/?api=1&query=Rua+Josué+passos+821" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center text-center p-8 bg-[#111] border border-white/5 rounded-2xl hover:bg-[#1a1a1a] transition-all group hover:-translate-y-2 shadow-lg">
+             <MapPin size={48} className="mb-6 text-white group-hover:scale-110 transition-transform group-hover:text-red-500"/>
              <h3 className="text-xl font-bold mb-2 text-white">Localização</h3>
-             <p className="text-gray-400">Rua Exemplo, 123<br/>Cidade/UF</p>
-          </div>
+             <p className="text-gray-400 group-hover:text-white transition-colors">Rua Josué Passos, 821</p>
+          </a>
         </div>
       </div>
     </>
