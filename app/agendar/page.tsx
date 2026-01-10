@@ -34,7 +34,7 @@ export default function SchedulePage() {
 
   const { showToast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (selectedServices.length === 0) {
@@ -47,12 +47,12 @@ export default function SchedulePage() {
     const serviceId = selectedServices.join(',');
 
     // Attempt validation first
-    const success = addAppointment({
+    const success = await addAppointment({
         clientName: formData.nome,
         phone: formData.telefone,
         serviceId: serviceId,
         serviceName: serviceName,
-        price: totalPrice, // Parsing passed price
+        price: totalPrice,
         date: formData.data,
         time: formData.hora
     });
