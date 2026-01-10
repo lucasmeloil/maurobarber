@@ -19,7 +19,7 @@ interface AdminSidebarProps {
 
 export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
   const pathname = usePathname();
-  const { unreadNotifications } = useApp();
+  const { unreadNotifications, logout } = useApp();
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -86,10 +86,10 @@ export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps)
       </nav>
 
       <div className="p-4 border-t border-white/10">
-         <Link href="/login" onClick={() => localStorage.removeItem('isAdmin')} className="flex items-center gap-4 p-3 text-red-400 hover:text-red-300 hover:bg-red-900/10 rounded-xl transition-colors">
+         <button onClick={logout} className="w-full flex items-center gap-4 p-3 text-red-400 hover:text-red-300 hover:bg-red-900/10 rounded-xl transition-colors">
             <LogOut size={22} className="min-w-[22px]" />
             {!collapsed && <span className="whitespace-nowrap">Sair</span>}
-         </Link>
+         </button>
       </div>
     </motion.aside>
   );
@@ -124,14 +124,13 @@ export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps)
         })}
         
         {/* Logout Button Mobile */}
-        <Link 
-            href="/login" 
-            onClick={() => localStorage.removeItem('isAdmin')} 
+        <button 
+            onClick={logout}
             className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-red-400 w-16"
         >
             <LogOut size={20} />
             <span className="text-[10px] mt-1 font-medium">Sair</span>
-        </Link>
+        </button>
       </div>
     </>
   );
