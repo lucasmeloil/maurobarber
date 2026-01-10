@@ -26,6 +26,19 @@ export default function ContactPage() {
              <p className="text-gray-400 group-hover:text-white transition-colors">Rua Josué Passos, 821</p>
           </a>
         </div>
+        
+        {/* Real-time Map Section */}
+        <div className="mt-16 bg-[#111] p-4 rounded-2xl border border-white/5 max-w-4xl mx-auto">
+             <iframe 
+                src="https://maps.google.com/maps?q=Rua+Josu%C3%A9+Passos,+821&t=&z=15&ie=UTF8&iwloc=&output=embed" 
+                width="100%" 
+                height="450" 
+                style={{ border: 0, borderRadius: '1rem' }} 
+                allowFullScreen={true} 
+                loading="lazy" 
+                referrerPolicy="no-referrer-when-downgrade"
+            ></iframe>
+        </div>
       </div>
     </>
   );

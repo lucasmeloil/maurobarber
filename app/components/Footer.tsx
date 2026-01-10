@@ -58,7 +58,12 @@ export default function Footer() {
       </div>
       
       <div className="container mx-auto px-4 mt-12 pt-8 border-t border-black/5 text-center text-xs text-gray-500">
-        &copy; {new Date().getFullYear()} Mauro Barber. Todos os direitos reservados.
+        <div className="flex flex-col md:flex-row justify-between items-center gap-2">
+            <p>&copy; {new Date().getFullYear()} Mauro Barber. Todos os direitos reservados.</p>
+            <p>
+                Desenvolvido por <a href="https://www.nexussofttech.com.br" target="_blank" rel="noopener noreferrer" className="font-bold hover:text-black transition-colors">NEXUS SOFT TECH</a>
+            </p>
+        </div>
       </div>
     </footer>
   );
