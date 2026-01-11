@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useApp, Appointment, Product } from '@/app/context/AppContext';
 import { useToast } from '@/app/context/ToastContext';
-import { Check, X, Clock, Edit2, Trash2, CalendarCheck, UserX, Plus, Minus, DollarSign, Save } from 'lucide-react';
+import { Check, X, Clock, Edit2, Trash2, CalendarCheck, UserX, Plus, DollarSign, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AppointmentsAdminPage() {
@@ -10,6 +10,9 @@ export default function AppointmentsAdminPage() {
   const { showToast } = useToast();
   
   const [isCreating, setIsCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Appointment>>({});
+
   const [newAppt, setNewAppt] = useState({
     clientName: '',
     phone: '',
@@ -19,6 +22,11 @@ export default function AppointmentsAdminPage() {
     serviceName: '',
     price: 0
   });
+
+  // Invoice Modal State
+  const [invoicingId, setInvoicingId] = useState<string | null>(null);
+  const [invoiceItems, setInvoiceItems] = useState<{ product: Product, qty: number }[]>([]);
+  const [currentAppt, setCurrentAppt] = useState<Appointment | null>(null);
 
   const handleCreate = async () => {
     if(!newAppt.clientName || !newAppt.phone || !newAppt.date || !newAppt.time || !newAppt.serviceId) {
@@ -49,14 +57,6 @@ export default function AppointmentsAdminPage() {
         showToast('Erro ao criar agendamento.', 'error');
     }
   };
-  
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Partial<Appointment>>({});
-  
-  // Invoice Modal State
-  const [invoicingId, setInvoicingId] = useState<string | null>(null);
-  const [invoiceItems, setInvoiceItems] = useState<{ product: Product, qty: number }[]>([]);
-  const [currentAppt, setCurrentAppt] = useState<Appointment | null>(null);
 
   const handleConfirm = async (id: string, phone: string, name: string, date: string, time: string) => {
     updateAppointmentStatus(id, 'confirmed');
@@ -148,73 +148,91 @@ export default function AppointmentsAdminPage() {
   };
 
   return (
-    <div className="relative">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold font-heading">Gerenciar Agendamentos</h1>
-        <div className="flex gap-4">
-            <button 
-                onClick={() => setIsCreating(true)}
-                className="bg-white text-black px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 transition-colors font-medium"
-            >
-                <Plus size={20}/>
-                Novo Agendamento
-            </button>
-            <div className="text-gray-400 self-center">Total: {appointments.length}</div>
+    <div className="relative pb-20 md:pb-0">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
+        <div>
+            <h1 className="text-2xl md:text-3xl font-bold font-heading">Gerenciar Agendamentos</h1>
+            <div className="text-gray-400 text-sm md:text-base">Total: {appointments.length}</div>
         </div>
+        
+        <button 
+            onClick={() => setIsCreating(true)}
+            className="w-full md:w-auto bg-white text-black px-6 py-3 md:py-2 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors font-bold shadow-lg active:scale-95"
+        >
+            <Plus size={20}/>
+            Novo Agendamento
+        </button>
       </div>
 
       {isCreating && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-2xl p-6">
+            <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-2xl p-6 shadow-2xl">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold">Novo Agendamento Manual</h2>
-                    <button onClick={() => setIsCreating(false)} className="text-gray-400 hover:text-white"><X size={24}/></button>
+                    <h2 className="text-xl font-bold font-heading">Novo Agendamento</h2>
+                    <button onClick={() => setIsCreating(false)} className="text-gray-400 hover:text-white p-2"><X size={24}/></button>
                 </div>
                 
                 <div className="space-y-4">
-                    <input 
-                        className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white"
-                        placeholder="Nome do Cliente"
-                        value={newAppt.clientName}
-                        onChange={e => setNewAppt({...newAppt, clientName: e.target.value})}
-                    />
-                    <input 
-                        className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white"
-                        placeholder="Telefone (apenas números)"
-                        value={newAppt.phone}
-                        onChange={e => setNewAppt({...newAppt, phone: e.target.value})}
-                    />
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-sm text-gray-400 ml-1">Cliente</label>
                         <input 
-                            type="date"
-                            className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white"
-                            value={newAppt.date}
-                            onChange={e => setNewAppt({...newAppt, date: e.target.value})}
-                        />
-                        <input 
-                            type="time"
-                            className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white"
-                            value={newAppt.time}
-                            onChange={e => setNewAppt({...newAppt, time: e.target.value})}
+                            className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white focus:border-[#d4af37] outline-none transition-colors"
+                            placeholder="Nome Completo"
+                            value={newAppt.clientName}
+                            onChange={e => setNewAppt({...newAppt, clientName: e.target.value})}
                         />
                     </div>
-                    <select 
-                        className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white"
-                        value={newAppt.serviceId}
-                        onChange={e => {
-                            const svc = services.find(s => s.id === e.target.value);
-                            if(svc) setNewAppt({...newAppt, serviceId: svc.id, serviceName: svc.name, price: svc.price});
-                        }}
-                    >
-                        <option value="">Selecione um Serviço</option>
-                        {services.map(s => (
-                            <option key={s.id} value={s.id}>{s.name} - R$ {s.price}</option>
-                        ))}
-                    </select>
+                    <div className="space-y-2">
+                        <label className="text-sm text-gray-400 ml-1">Contato</label>
+                        <input 
+                            className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white focus:border-[#d4af37] outline-none transition-colors"
+                            placeholder="Telefone (apenas números)"
+                            value={newAppt.phone}
+                            onChange={e => setNewAppt({...newAppt, phone: e.target.value})}
+                        />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm text-gray-400 ml-1">Data</label>
+                            <input 
+                                type="date"
+                                className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white focus:border-[#d4af37] outline-none transition-colors"
+                                value={newAppt.date}
+                                onChange={e => setNewAppt({...newAppt, date: e.target.value})}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm text-gray-400 ml-1">Hora</label>
+                            <input 
+                                type="time"
+                                className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white focus:border-[#d4af37] outline-none transition-colors"
+                                value={newAppt.time}
+                                onChange={e => setNewAppt({...newAppt, time: e.target.value})}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                         <label className="text-sm text-gray-400 ml-1">Serviço</label>
+                         <select 
+                            className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white focus:border-[#d4af37] outline-none transition-colors appearance-none"
+                            value={newAppt.serviceId}
+                            onChange={e => {
+                                const svc = services.find(s => s.id === e.target.value);
+                                if(svc) setNewAppt({...newAppt, serviceId: svc.id, serviceName: svc.name, price: svc.price});
+                            }}
+                        >
+                            <option value="">Selecione...</option>
+                            {services.map(s => (
+                                <option key={s.id} value={s.id}>{s.name} - R$ {s.price}</option>
+                            ))}
+                        </select>
+                    </div>
 
                     <button 
                         onClick={handleCreate}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg mt-4"
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl mt-6 shadow-lg shadow-blue-900/20 active:scale-[0.98] transition-all"
                     >
                         Criar Agendamento
                     </button>
@@ -225,29 +243,31 @@ export default function AppointmentsAdminPage() {
 
       <div className="grid gap-4 z-0 relative">
         {appointments.length === 0 ? (
-            <p className="text-gray-500">Nenhum agendamento registrado ainda.</p>
+            <div className="text-center py-20 bg-[#111] rounded-2xl border border-white/5">
+                <p className="text-gray-500 text-lg">Nenhum agendamento registrado ainda.</p>
+            </div>
         ) : (
             appointments.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(appt => (
                 <motion.div 
                     key={appt.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`bg-[#111] border p-6 rounded-xl flex flex-col gap-4 relative overflow-hidden transition-colors ${
-                        appt.status === 'confirmed' ? 'border-[#25D366]/30' : 
-                        appt.status === 'cancelled' ? 'border-red-900/30 opacity-60' : 
-                        appt.status === 'completed' ? 'border-blue-500/30' :
-                        appt.status === 'noshow' ? 'border-orange-500/30 opacity-60' :
+                    className={`bg-[#111] border p-5 md:p-6 rounded-2xl flex flex-col gap-4 relative overflow-hidden transition-all shadow-lg ${
+                        appt.status === 'confirmed' ? 'border-[#25D366]/30 shadow-[#25D366]/5' : 
+                        appt.status === 'cancelled' ? 'border-red-900/30 opacity-70' : 
+                        appt.status === 'completed' ? 'border-blue-500/30 opacity-90' :
+                        appt.status === 'noshow' ? 'border-orange-500/30 opacity-70' :
                         'border-white/10'
                     }`}
                 >
-                    {/* Status Badge */}
-                    <div className="absolute top-4 right-4 flex gap-2">
-                         <span className={`text-xs px-2 py-1 rounded-full border font-bold uppercase tracking-wider ${
-                            appt.status === 'confirmed' ? 'border-green-500 text-green-500 bg-green-500/10' :
-                            appt.status === 'cancelled' ? 'border-red-500 text-red-500 bg-red-500/10' :
-                            appt.status === 'completed' ? 'border-blue-500 text-blue-500 bg-blue-500/10' :
-                            appt.status === 'noshow' ? 'border-orange-500 text-orange-500 bg-orange-500/10' :
-                            'border-yellow-500 text-yellow-500 bg-yellow-500/10'
+                    {/* Status Badge - Top Right */}
+                    <div className="absolute top-4 right-4 z-10">
+                         <span className={`text-[10px] md:text-xs font-bold px-3 py-1.5 rounded-full border uppercase tracking-wider ${
+                            appt.status === 'confirmed' ? 'border-green-500/50 text-green-400 bg-green-500/10' :
+                            appt.status === 'cancelled' ? 'border-red-500/50 text-red-500 bg-red-500/10' :
+                            appt.status === 'completed' ? 'border-blue-500/50 text-blue-400 bg-blue-500/10' :
+                            appt.status === 'noshow' ? 'border-orange-500/50 text-orange-500 bg-orange-500/10' :
+                            'border-yellow-500/50 text-yellow-500 bg-yellow-500/10'
                         }`}>
                             {appt.status === 'pending' ? 'Pendente' : 
                              appt.status === 'confirmed' ? 'Confirmado' : 
@@ -259,75 +279,130 @@ export default function AppointmentsAdminPage() {
 
                     {/* Edit Mode */}
                     {editingId === appt.id ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-black/50 p-4 rounded-lg border border-white/5">
-                            {/* ... (Existing Edit Inputs) ... */}
+                        <div className="grid grid-cols-1 gap-4 bg-black/50 p-4 rounded-xl border border-white/5 mt-8 md:mt-0">
                             <input 
-                                className="bg-black border border-white/20 p-2 rounded text-white" 
+                                className="bg-black border border-white/20 p-3 rounded-lg text-white w-full" 
                                 value={editForm.clientName} 
                                 onChange={e => setEditForm({...editForm, clientName: e.target.value})}
                                 placeholder="Nome do Cliente"
                             />
-                            {/* Keeping edit minimal for brevity in this replace block, full logic is same as before */}
-                            <div className="flex gap-2 justify-end mt-2 md:mt-0 col-span-1 md:col-span-2">
-                                <button onClick={() => setEditingId(null)} className="px-4 py-2 text-gray-400 hover:text-white text-sm">Cancelar</button>
-                                <button onClick={saveEdit} className="bg-green-600 px-4 py-2 rounded text-white text-sm hover:bg-green-500">Salvar</button>
+                            <input 
+                                className="bg-black border border-white/20 p-3 rounded-lg text-white w-full" 
+                                value={editForm.phone} 
+                                onChange={e => setEditForm({...editForm, phone: e.target.value})}
+                                placeholder="Telefone"
+                            />
+                             <div className="grid grid-cols-2 gap-3">
+                                <input 
+                                    className="bg-black border border-white/20 p-3 rounded-lg text-white" 
+                                    type="date"
+                                    value={editForm.date} 
+                                    onChange={e => setEditForm({...editForm, date: e.target.value})}
+                                />
+                                <input 
+                                    className="bg-black border border-white/20 p-3 rounded-lg text-white" 
+                                    type="time"
+                                    value={editForm.time} 
+                                    onChange={e => setEditForm({...editForm, time: e.target.value})}
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button onClick={() => setEditingId(null)} className="flex-1 py-3 text-gray-400 hover:text-white bg-white/5 rounded-lg border border-white/10">Cancelar</button>
+                                <button onClick={saveEdit} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg">Salvar</button>
                             </div>
                         </div>
                     ) : (
                         /* Display Mode */
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                             <div>
-                                <h3 className="font-bold text-xl text-white mb-1">{appt.clientName}</h3>
-                                <div className="flex flex-col gap-1">
-                                    <p className="text-gray-400 text-sm flex items-center gap-2">
-                                        <Clock size={14} className="text-[#d4af37]" /> {appt.date} às <span className="text-white font-bold">{appt.time}</span>
-                                    </p>
-                                    <p className="text-gray-400 text-sm flex items-center gap-2">
-                                         <span className="w-3.5 h-3.5 rounded-full bg-white/10 flex items-center justify-center text-[10px]">✂</span> 
-                                         {appt.serviceName}
-                                    </p>
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pt-2">
+                             <div className="flex-1 w-full">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <h3 className="font-bold text-2xl text-white">{appt.clientName}</h3>
+                                </div>
+                                
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-white/5 w-full md:w-auto">
+                                        <Clock size={20} className="text-[#d4af37]" /> 
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] text-gray-400 uppercase tracking-widest">Data e Hora</span>
+                                            <div className="text-white font-bold text-lg leading-none">
+                                                {appt.date.split('-').reverse().join('/')} <span className="text-gray-500 mx-1">|</span> {appt.time}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-400">
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-white/30"></span>
+                                            {appt.serviceName}
+                                        </span>
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-green-500/50"></span>
+                                            R$ {appt.price?.toFixed(2)}
+                                        </span>
+                                         <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-blue-500/50"></span>
+                                            {appt.phone}
+                                        </span>
+                                    </div>
+
                                     {appt.products && appt.products.length > 0 && (
-                                        <div className="mt-2 text-xs text-gray-400 bg-white/5 p-2 rounded">
-                                            <strong>Consumo Extra:</strong>
+                                        <div className="mt-2 text-xs text-gray-400 bg-white/5 p-3 rounded-lg border border-white/5">
+                                            <strong className="text-white block mb-2">Consumo Extra:</strong>
                                             {appt.products.map((p, idx) => (
-                                                <div key={idx} className="flex justify-between">
+                                                <div key={idx} className="flex justify-between py-1 border-b border-white/5 last:border-0">
                                                     <span>{p.quantity}x {p.name}</span>
-                                                    <span>R$ {(p.price * p.quantity).toFixed(2)}</span>
+                                                    <span className="text-white">R$ {(p.price * p.quantity).toFixed(2)}</span>
                                                 </div>
                                             ))}
                                         </div>
                                     )}
-                                    <p className="text-gray-500 text-xs mt-1">Total: <span className="text-green-400 font-bold">R$ {appt.price?.toFixed(2)}</span></p>
                                 </div>
                             </div>
 
-                            <div className="flex flex-wrap gap-2 mt-2 md:mt-0">
-                                {appt.status === 'pending' && (
-                                    <>
-                                        <button onClick={() => handleConfirm(appt.id, appt.phone, appt.clientName, appt.date, appt.time)} className="bg-green-600 hover:bg-green-500 text-white p-2 rounded-lg" title="Confirmar">
-                                            <Check size={18} />
-                                        </button>
-                                        <button onClick={() => handleChangeStatus(appt.id, 'cancelled')} className="bg-red-900/30 hover:bg-red-900/50 text-red-400 p-2 rounded-lg" title="Cancelar">
-                                            <X size={18} />
-                                        </button>
-                                    </>
-                                )}
+                            {/* Actions Bar */}
+                            <div className="w-full md:w-auto flex flex-col gap-3">
+                                <div className="grid grid-cols-2 md:grid-flow-col gap-3">
+                                    {appt.status === 'pending' && (
+                                        <>
+                                            <button onClick={() => handleConfirm(appt.id, appt.phone, appt.clientName, appt.date, appt.time)} className="bg-green-600/90 hover:bg-green-600 text-white p-3 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-lg shadow-green-900/20" title="Confirmar">
+                                                <Check size={20} /> <span className="font-bold">Confirmar</span>
+                                            </button>
+                                            <button onClick={() => handleChangeStatus(appt.id, 'cancelled')} className="bg-red-900/40 hover:bg-red-900/60 text-red-200 p-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-red-500/20" title="Cancelar">
+                                                <X size={20} /> <span className="font-medium">Cancelar</span>
+                                            </button>
+                                        </>
+                                    )}
 
-                                {appt.status === 'confirmed' && (
-                                    <>
-                                        {/* Invoice Button */}
-                                        <button onClick={() => openInvoiceModal(appt)} className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg flex items-center gap-2 text-sm px-3" title="Faturar e Finalizar">
-                                            <DollarSign size={16} /> <span className="hidden md:inline">Faturar / Finalizar</span>
-                                        </button>
-                                        <button onClick={() => handleChangeStatus(appt.id, 'noshow')} className="bg-orange-600/30 hover:bg-orange-600/50 text-orange-400 p-2 rounded-lg flex items-center gap-2 text-sm px-3" title="Não Veio">
-                                            <UserX size={16} /> <span className="hidden md:inline">Não Veio</span>
-                                        </button>
-                                    </>
-                                )}
+                                    {appt.status === 'confirmed' && (
+                                        <>
+                                            <button onClick={() => openInvoiceModal(appt)} className="col-span-2 bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-xl flex items-center justify-center gap-3 font-bold shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]" title="Finalizar Venda">
+                                                <DollarSign size={20} /> Finalizar Venda
+                                            </button>
+                                            <button onClick={() => handleChangeStatus(appt.id, 'noshow')} className="bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-500/20 p-3 rounded-xl flex items-center justify-center gap-2" title="Não Veio">
+                                                <UserX size={18} /> <span className="font-medium">Não Veio</span>
+                                            </button>
+                                        </>
+                                    )}
+                                    
+                                    {/* Action Secondary Buttons */}
+                                    {(appt.status === 'confirmed' || appt.status === 'pending') && (
+                                        <div className="col-span-2 md:col-span-1 flex gap-3">
+                                             <button onClick={() => startEdit(appt)} className="flex-1 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 p-3 rounded-xl flex items-center justify-center">
+                                                <Edit2 size={18} />
+                                            </button>
+                                            <button onClick={() => handleDelete(appt.id)} className="flex-1 bg-red-900/10 hover:bg-red-900/20 text-red-500 border border-red-500/10 p-3 rounded-xl flex items-center justify-center">
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    )}
 
-                                <div className="w-px h-8 bg-white/10 mx-2 hidden md:block"></div>
-                                <button onClick={() => startEdit(appt)} className="text-gray-500 hover:text-white p-2 hover:bg-white/5 rounded-lg transition-colors"><Edit2 size={18} /></button>
-                                <button onClick={() => handleDelete(appt.id)} className="text-red-900 hover:text-red-500 p-2 hover:bg-red-900/10 rounded-lg transition-colors"><Trash2 size={18} /></button>
+                                    {/* Simplified View for Past/Cancelled */}
+                                    {(appt.status === 'completed' || appt.status === 'cancelled' || appt.status === 'noshow') && (
+                                         <button onClick={() => handleDelete(appt.id)} className="col-span-2 bg-white/5 hover:bg-red-900/20 text-gray-500 hover:text-red-500 border border-white/5 p-3 rounded-xl flex items-center justify-center gap-2 w-full transition-colors">
+                                            <Trash2 size={18} /> Excluir Registro
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -336,62 +411,68 @@ export default function AppointmentsAdminPage() {
         )}
       </div>
 
-      {/* INVOICE MODAL */}
+      {/* INVOICE MODAL (Keep as is just ensuring z-index) */}
       <AnimatePresence>
         {invoicingId && currentAppt && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[60] flex items-center justify-end md:justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm">
                 <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    className="bg-[#111] border border-white/10 w-full max-w-2xl rounded-2xl shadow-2xl p-6 flex flex-col max-h-[90vh]"
+                    initial={{ y: '100%', opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: '100%', opacity: 0 }}
+                    className="bg-[#111] border-t md:border border-white/10 w-full md:max-w-2xl h-[90vh] md:h-auto md:rounded-2xl rounded-t-3xl shadow-2xl p-6 flex flex-col"
                 >
                     <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
                         <h2 className="text-2xl font-bold font-heading">Faturar Atendimento</h2>
-                        <button onClick={() => setInvoicingId(null)} className="text-gray-400 hover:text-white"><X size={24}/></button>
+                        <button onClick={() => setInvoicingId(null)} className="text-gray-400 hover:text-white bg-white/10 p-2 rounded-full"><X size={20}/></button>
                     </div>
 
                     <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                         {/* Summary Section */}
-                        <div className="bg-white/5 p-4 rounded-xl mb-6">
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3">Resumo do Serviço</h3>
-                            <div className="flex justify-between mb-2">
-                                <span>{currentAppt.serviceName}</span>
-                                <span className="font-bold">R$ {currentAppt.price?.toFixed(2)}</span>
+                        <div className="bg-white/5 p-5 rounded-2xl mb-6 border border-white/5">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Resumo do Serviço</h3>
+                            <div className="flex justify-between items-end mb-2">
+                                <span className="text-lg text-white">{currentAppt.serviceName}</span>
+                                <span className="text-xl font-bold text-green-400">R$ {currentAppt.price?.toFixed(2)}</span>
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-400 mt-2">
-                                <span className="bg-white/10 px-2 py-1 rounded">{currentAppt.clientName}</span>
+                            <div className="flex items-center gap-2 text-sm text-gray-500 mt-2">
+                                <UserX size={14}/> {currentAppt.clientName}
                             </div>
                         </div>
 
                         {/* Add Products Section */}
                         <div className="mb-6">
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3">Adicionar Consumíveis / Produtos</h3>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Adicionar Consumíveis / Produtos</h3>
                             
                             {/* Product List Grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                            <div className="grid grid-cols-2 gap-3 mb-4">
                                 {products.map(prod => (
                                     <button 
                                         key={prod.id}
                                         onClick={() => addProductToInvoice(prod)}
-                                        className="bg-black border border-white/10 hover:border-[#d4af37] p-3 rounded-lg text-left transition-colors group"
+                                        className="bg-black border border-white/10 hover:border-[#d4af37] p-4 rounded-xl text-left transition-all active:scale-95 group relative overflow-hidden"
                                     >
-                                        <div className="font-medium text-sm truncate group-hover:text-[#d4af37]">{prod.name}</div>
-                                        <div className="text-xs text-gray-500 mt-1">R$ {prod.price.toFixed(2)}</div>
+                                        <div className="relative z-10">
+                                            <div className="font-bold text-white group-hover:text-[#d4af37] transition-colors">{prod.name}</div>
+                                            <div className="text-sm text-gray-500 mt-1">R$ {prod.price.toFixed(2)}</div>
+                                        </div>
+                                        <div className="absolute right-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity text-[#d4af37]">
+                                            <Plus size={16} />
+                                        </div>
                                     </button>
                                 ))}
                             </div>
 
                             {/* Cart / Selected Items */}
                             {invoiceItems.length > 0 && (
-                                <div className="space-y-2 mt-4 bg-black/30 p-4 rounded-xl border border-white/5">
+                                <div className="space-y-3 mt-4 bg-[#1a1a1a] p-5 rounded-2xl border border-white/5">
+                                    <h4 className="text-sm font-bold text-gray-300 mb-2">Itens Adicionados</h4>
                                     {invoiceItems.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center text-sm">
-                                            <div className="flex items-center gap-3">
-                                                <button onClick={() => removeProductFromInvoice(item.product.id)} className="text-red-500 hover:text-red-400"><Trash2 size={14}/></button>
-                                                <span>{item.qty}x {item.product.name}</span>
+                                        <div key={idx} className="flex justify-between items-center text-sm border-b border-white/5 last:border-0 pb-2 last:pb-0">
+                                            <div className="flex items-center gap-4">
+                                                <button onClick={() => removeProductFromInvoice(item.product.id)} className="text-red-500 bg-red-500/10 p-1.5 rounded-lg hover:bg-red-500 hover:text-white transition-colors"><Trash2 size={14}/></button>
+                                                <span className="text-white font-medium">{item.qty}x {item.product.name}</span>
                                             </div>
-                                            <span className="text-gray-400">R$ {(item.product.price * item.qty).toFixed(2)}</span>
+                                            <span className="text-gray-400 font-medium">R$ {(item.product.price * item.qty).toFixed(2)}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -400,17 +481,19 @@ export default function AppointmentsAdminPage() {
                     </div>
 
                     {/* Total & Action Footer */}
-                    <div className="pt-4 border-t border-white/10 mt-4">
-                        <div className="flex justify-between items-end mb-4">
-                            <span className="text-gray-400">Total Final</span>
-                            <span className="text-4xl font-bold text-[#d4af37]">R$ {calculateTotal().toFixed(2)}</span>
+                    <div className="pt-6 border-t border-white/10 mt-2 bg-[#111] pb-safe">
+                        <div className="flex justify-between items-end mb-6">
+                            <div className="flex flex-col">
+                                <span className="text-gray-500 text-sm mb-1">Valor Total</span>
+                                <span className="text-3xl font-bold text-white">R$ {calculateTotal().toFixed(2)}</span>
+                            </div>
                         </div>
                         <button 
                             onClick={finalizeInvoice}
-                            className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 text-lg shadow-lg shadow-green-900/20 transition-all hover:scale-[1.02]"
+                            className="w-full bg-[#d4af37] hover:bg-[#b5952f] text-black font-bold py-4 rounded-xl flex items-center justify-center gap-3 text-lg shadow-lg shadow-yellow-900/20 transition-all hover:scale-[1.02] active:scale-95"
                         >
-                            <Check size={24} />
-                            Finalizar e Faturar
+                            <Check size={24} strokeWidth={3} />
+                            CONFIRMAR E FATURAR
                         </button>
                     </div>
                 </motion.div>
