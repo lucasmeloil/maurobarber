@@ -29,6 +29,42 @@ export default function AdminLayout({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Notification Permission & Listener
+  useEffect(() => {
+    const setupNotifications = async () => {
+        try {
+            if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+                const messaging = (await import('firebase/messaging')).getMessaging();
+                const { getToken, onMessage } = await import('firebase/messaging');
+                
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    const token = await getToken(messaging, { 
+                        vapidKey: 'YOUR_VAPID_KEY_HERE' // Você precisará gerar isso no Console do Firebase > Cloud Messaging
+                    });
+                    console.log('FCM Token:', token);
+                    // Aqui você salvaria esse token no Firestore na coleção 'admin_tokens' para usar depois
+                }
+
+                onMessage(messaging, (payload) => {
+                    console.log('Message received. ', payload);
+                    // Custom toast ou alerta visual aqui
+                    new Notification(payload.notification?.title || 'Novo Agendamento', {
+                        body: payload.notification?.body,
+                        icon: '/img/logo.png'
+                    });
+                });
+            }
+        } catch (error) {
+            console.log('Error configuring notifications:', error);
+        }
+    };
+
+    if (currentUser) {
+        setupNotifications();
+    }
+  }, [currentUser]);
+
   if (loadingAuth) {
       return (
           <div className="flex bg-[#0a0a0a] min-h-screen text-white items-center justify-center">
