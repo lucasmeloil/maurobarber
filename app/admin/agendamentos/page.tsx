@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useApp, Appointment, Product } from '@/app/context/AppContext';
 import { useToast } from '@/app/context/ToastContext';
-import { Check, X, Clock, Edit2, Trash2, CalendarCheck, UserX, Plus, DollarSign, ArrowRight } from 'lucide-react';
+import { Check, X, Clock, Edit2, Trash2, CalendarCheck, UserX, Plus, DollarSign, ArrowRight, Eye, User, Phone as PhoneIcon, UserCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AppointmentsAdminPage() {
@@ -12,6 +12,9 @@ export default function AppointmentsAdminPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Appointment>>({});
+  
+  // Detail Modal
+  const [viewingAppt, setViewingAppt] = useState<Appointment | null>(null);
 
   const [newAppt, setNewAppt] = useState({
     clientName: '',
@@ -34,6 +37,8 @@ export default function AppointmentsAdminPage() {
         return;
     }
 
+    // Default: no specific barber selected for manually created appointments (or admin user could be the barber)
+    // For now, let's treat manual creation as generic or check global.
     if(!isSlotAvailable(newAppt.date, newAppt.time, newAppt.serviceId)) {
         showToast('Horário indisponível!', 'error');
         return;
@@ -58,14 +63,22 @@ export default function AppointmentsAdminPage() {
     }
   };
 
-  const handleConfirm = async (id: string, phone: string, name: string, date: string, time: string) => {
-    updateAppointmentStatus(id, 'confirmed');
+  const handleConfirm = async (appt: Appointment) => {
+    // Check for conflict excluding this appointment (safe check)
+    if (!isSlotAvailable(appt.date, appt.time, appt.serviceId, appt.barberId, appt.id)) {
+        if (!confirm('ATENÇÃO: Este horário parece estar conflitando com outro agendamento existente para este barbeiro. Deseja confirmar mesmo assim?')) {
+            return;
+        }
+    }
+
+    updateAppointmentStatus(appt.id, 'confirmed');
     showToast('Agendamento confirmado!', 'success');
+    setViewingAppt(null); // Close modal if open
     
     // Simulate Notification / WhatsApp message
-    const message = `Olá *${name}*!%0ASeu agendamento na Mauro Barber para *${date}* às *${time}* foi CONFIRMADO.%0ATe esperamos! 💈`;
+    const message = `Olá *${appt.clientName}*!%0ASeu agendamento na Mauro Barber para *${appt.date.split('-').reverse().join('/')}* às *${appt.time}* foi CONFIRMADO.%0ATe esperamos! 💈`;
     if(confirm('Confirmar agendamento e notificar cliente via WhatsApp?')) {
-        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+        window.open(`https://wa.me/${appt.phone}?text=${message}`, '_blank');
     }
   };
 
@@ -73,12 +86,14 @@ export default function AppointmentsAdminPage() {
     updateAppointmentStatus(id, status);
     const msg = status === 'completed' ? 'Marcado como Comparecido' : status === 'noshow' ? 'Marcado como Não Veio' : 'Status atualizado';
     showToast(msg, status === 'noshow' ? 'error' : 'success');
+    setViewingAppt(null);
   };
 
   const handleDelete = (id: string) => {
     if(confirm('Tem certeza que deseja excluir permanentemente este agendamento?')) {
         deleteAppointment(id);
         showToast('Agendamento excluído.', 'error');
+        setViewingAppt(null);
     }
   };
 
@@ -90,6 +105,13 @@ export default function AppointmentsAdminPage() {
 
   const saveEdit = () => {
     if(editingId && editForm) {
+        // If date/time/barber changed, should check conflicts again?
+        // For simple edit, maybe just warn? Or forcing check?
+        // Let's rely on user for now or do simple check:
+        // if (!isSlotAvailable(editForm.date!, editForm.time!, editForm.serviceId!, editForm.barberId, editingId)) {
+        //    if(!confirm('Conflito detectado com as novas informações. Salvar mesmo assim?')) return;
+        // }
+
         updateAppointment(editingId, editForm);
         setEditingId(null);
         showToast('Agendamento atualizado!', 'success');
@@ -241,6 +263,7 @@ export default function AppointmentsAdminPage() {
         </div>
       )}
 
+      {/* Appointment List */}
       <div className="grid gap-4 z-0 relative">
         {appointments.length === 0 ? (
             <div className="text-center py-20 bg-[#111] rounded-2xl border border-white/5">
@@ -260,8 +283,8 @@ export default function AppointmentsAdminPage() {
                         'border-white/10'
                     }`}
                 >
-                    {/* Status Badge - Top Right */}
-                    <div className="absolute top-4 right-4 z-10">
+                    {/* Status Badge */}
+                    <div className="absolute top-4 right-4 z-10 flex gap-2">
                          <span className={`text-[10px] md:text-xs font-bold px-3 py-1.5 rounded-full border uppercase tracking-wider ${
                             appt.status === 'confirmed' ? 'border-green-500/50 text-green-400 bg-green-500/10' :
                             appt.status === 'cancelled' ? 'border-red-500/50 text-red-500 bg-red-500/10' :
@@ -312,8 +335,8 @@ export default function AppointmentsAdminPage() {
                             </div>
                         </div>
                     ) : (
-                        /* Display Mode */
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pt-2">
+                    /* Content */
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pt-2">
                              <div className="flex-1 w-full">
                                 <div className="flex items-center gap-3 mb-2">
                                     <h3 className="font-bold text-2xl text-white">{appt.clientName}</h3>
@@ -336,72 +359,59 @@ export default function AppointmentsAdminPage() {
                                             {appt.serviceName}
                                         </span>
                                         <span className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-purple-500/50"></span>
+                                            {appt.barberName || 'Barbeiro não selecionado'}
+                                        </span>
+                                        <span className="flex items-center gap-2">
                                             <span className="w-2 h-2 rounded-full bg-green-500/50"></span>
                                             R$ {appt.price?.toFixed(2)}
                                         </span>
-                                         <span className="flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full bg-blue-500/50"></span>
-                                            {appt.phone}
-                                        </span>
                                     </div>
-
-                                    {appt.products && appt.products.length > 0 && (
-                                        <div className="mt-2 text-xs text-gray-400 bg-white/5 p-3 rounded-lg border border-white/5">
-                                            <strong className="text-white block mb-2">Consumo Extra:</strong>
-                                            {appt.products.map((p, idx) => (
-                                                <div key={idx} className="flex justify-between py-1 border-b border-white/5 last:border-0">
-                                                    <span>{p.quantity}x {p.name}</span>
-                                                    <span className="text-white">R$ {(p.price * p.quantity).toFixed(2)}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
                                 </div>
                             </div>
 
                             {/* Actions Bar */}
                             <div className="w-full md:w-auto flex flex-col gap-3">
-                                <div className="grid grid-cols-2 md:grid-flow-col gap-3">
+                                <div className="grid grid-cols-2 lg:grid-flow-col gap-3">
+                                     <button onClick={() => setViewingAppt(appt)} className="col-span-1 md:col-span-2 lg:col-span-1 bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl flex items-center justify-center gap-2 transition-all font-medium">
+                                        <Eye size={18} /> Detalhes
+                                     </button>
+
                                     {appt.status === 'pending' && (
                                         <>
-                                            <button onClick={() => handleConfirm(appt.id, appt.phone, appt.clientName, appt.date, appt.time)} className="bg-green-600/90 hover:bg-green-600 text-white p-3 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-lg shadow-green-900/20" title="Confirmar">
-                                                <Check size={20} /> <span className="font-bold">Confirmar</span>
+                                            <button onClick={() => handleConfirm(appt)} className="bg-green-600/90 hover:bg-green-600 text-white p-3 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-lg shadow-green-900/20" title="Confirmar">
+                                                <Check size={20} />
                                             </button>
                                             <button onClick={() => handleChangeStatus(appt.id, 'cancelled')} className="bg-red-900/40 hover:bg-red-900/60 text-red-200 p-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-red-500/20" title="Cancelar">
-                                                <X size={20} /> <span className="font-medium">Cancelar</span>
+                                                <X size={20} />
                                             </button>
                                         </>
                                     )}
 
                                     {appt.status === 'confirmed' && (
                                         <>
-                                            <button onClick={() => openInvoiceModal(appt)} className="col-span-2 bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-xl flex items-center justify-center gap-3 font-bold shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]" title="Finalizar Venda">
-                                                <DollarSign size={20} /> Finalizar Venda
+                                            <button onClick={() => openInvoiceModal(appt)} className="cols-span-1 md:col-span-2 lg:col-span-1 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02]" title="Finalizar Venda">
+                                                <DollarSign size={20} /> Finalizar
                                             </button>
                                             <button onClick={() => handleChangeStatus(appt.id, 'noshow')} className="bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-500/20 p-3 rounded-xl flex items-center justify-center gap-2" title="Não Veio">
-                                                <UserX size={18} /> <span className="font-medium">Não Veio</span>
+                                                <UserX size={18} />
                                             </button>
                                         </>
                                     )}
-                                    
-                                    {/* Action Secondary Buttons */}
-                                    {(appt.status === 'confirmed' || appt.status === 'pending') && (
-                                        <div className="col-span-2 md:col-span-1 flex gap-3">
-                                             <button onClick={() => startEdit(appt)} className="flex-1 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 p-3 rounded-xl flex items-center justify-center">
-                                                <Edit2 size={18} />
-                                            </button>
-                                            <button onClick={() => handleDelete(appt.id)} className="flex-1 bg-red-900/10 hover:bg-red-900/20 text-red-500 border border-red-500/10 p-3 rounded-xl flex items-center justify-center">
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </div>
-                                    )}
 
-                                    {/* Simplified View for Past/Cancelled */}
-                                    {(appt.status === 'completed' || appt.status === 'cancelled' || appt.status === 'noshow') && (
-                                         <button onClick={() => handleDelete(appt.id)} className="col-span-2 bg-white/5 hover:bg-red-900/20 text-gray-500 hover:text-red-500 border border-white/5 p-3 rounded-xl flex items-center justify-center gap-2 w-full transition-colors">
-                                            <Trash2 size={18} /> Excluir Registro
-                                        </button>
-                                    )}
+                                     {/* Always show Edit/Delete for allowed states */}
+                                     {/* Edit allowed for pending/confirmed/noshow/cancelled? Usually pending/confirmed. Let's allow for all except completed? */}
+                                     {appt.status !== 'completed' && (
+                                         <button onClick={() => startEdit(appt)} className="bg-white/5 hover:bg-white/10 text-blue-300 border border-white/10 p-3 rounded-xl flex items-center justify-center" title="Editar">
+                                            <Edit2 size={18} />
+                                         </button>
+                                     )}
+                                     
+                                     {/* Delete allowed for all? Especially cancelled as requested */}
+                                     <button onClick={() => handleDelete(appt.id)} className="bg-white/5 hover:bg-red-900/20 text-red-500 hover:text-red-400 border border-white/10 p-3 rounded-xl flex items-center justify-center transition-colors" title="Excluir">
+                                        <Trash2 size={18} />
+                                     </button>
+
                                 </div>
                             </div>
                         </div>
@@ -410,6 +420,113 @@ export default function AppointmentsAdminPage() {
             ))
         )}
       </div>
+
+       {/* VIEW DETAILS MODAL */}
+       <AnimatePresence>
+            {viewingAppt && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="bg-[#111] border border-white/10 w-full max-w-lg rounded-2xl p-6 shadow-2xl overflow-hidden"
+                    >
+                        <div className="flex justify-between items-start mb-6 border-b border-white/5 pb-4">
+                            <div>
+                                <h2 className="text-2xl font-bold font-heading text-white">{viewingAppt.clientName}</h2>
+                                <p className="text-gray-400 text-sm">Detalhes do Agendamento</p>
+                            </div>
+                            <button onClick={() => setViewingAppt(null)} className="text-gray-400 hover:text-white bg-white/5 p-2 rounded-full"><X size={20}/></button>
+                        </div>
+
+                         <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+                                    <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Data</label>
+                                    <div className="flex items-center gap-2 text-white font-medium">
+                                        <CalendarCheck size={16} className="text-[#d4af37]" />
+                                        {viewingAppt.date.split('-').reverse().join('/')}
+                                    </div>
+                                </div>
+                                <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+                                    <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1">Hora</label>
+                                    <div className="flex items-center gap-2 text-white font-medium">
+                                        <Clock size={16} className="text-[#d4af37]" />
+                                        {viewingAppt.time}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors border-b border-white/5">
+                                    <div className="flex items-center gap-3">
+                                        <UserCheck size={18} className="text-blue-400"/>
+                                        <span className="text-gray-300">Profissional</span>
+                                    </div>
+                                    <span className="font-bold text-white">{viewingAppt.barberName || 'Não especificado'}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors border-b border-white/5">
+                                    <div className="flex items-center gap-3">
+                                        <PhoneIcon size={18} className="text-green-400"/>
+                                        <span className="text-gray-300">Telefone</span>
+                                    </div>
+                                    <span className="font-bold text-white">{viewingAppt.phone}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors border-b border-white/5">
+                                    <div className="flex items-center gap-3">
+                                        <DollarSign size={18} className="text-yellow-400"/>
+                                        <span className="text-gray-300">Valor Estimado</span>
+                                    </div>
+                                    <span className="font-bold text-white">R$ {viewingAppt.price?.toFixed(2)}</span>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white/5 p-4 rounded-xl">
+                                <label className="text-xs text-gray-500 uppercase tracking-wider block mb-2">Serviço(s)</label>
+                                <p className="text-white font-medium">{viewingAppt.serviceName}</p>
+                            </div>
+
+                            <div className="flex gap-4 mt-6">
+                                <button onClick={() => startEdit(viewingAppt)} className="flex-1 py-3 text-white bg-white/10 hover:bg-white/20 rounded-xl transition-all flex items-center justify-center gap-2">
+                                     <Edit2 size={18} /> Editar
+                                </button>
+                                <button onClick={() => handleDelete(viewingAppt.id)} className="flex-1 py-3 text-red-400 bg-red-900/10 hover:bg-red-900/20 rounded-xl transition-all flex items-center justify-center gap-2">
+                                     <Trash2 size={18} /> Excluir
+                                </button>
+                            </div>
+
+                             {viewingAppt.status === 'pending' && (
+                                <div className="grid grid-cols-2 gap-4 mt-4">
+                                    <button 
+                                        onClick={() => handleChangeStatus(viewingAppt.id, 'cancelled')}
+                                        className="py-3 rounded-xl bg-red-900/20 text-red-400 border border-red-900/30 hover:bg-red-900/40 font-bold transition-all"
+                                    >
+                                        Rejeitar
+                                    </button>
+                                    <button 
+                                        onClick={() => handleConfirm(viewingAppt)}
+                                        className="py-3 rounded-xl bg-green-600 text-white hover:bg-green-500 font-bold shadow-lg shadow-green-900/20 transition-all"
+                                    >
+                                        Confirmar
+                                    </button>
+                                </div>
+                             )}
+
+                             {viewingAppt.status === 'confirmed' && (
+                                <div className="mt-4">
+                                     <button 
+                                        onClick={() => { setViewingAppt(null); openInvoiceModal(viewingAppt); }}
+                                        className="w-full py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-500 font-bold shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <DollarSign size={20} /> Finalizar Atendimento
+                                    </button>
+                                </div>
+                             )}
+                         </div>
+                    </motion.div>
+                </div>
+            )}
+       </AnimatePresence>
 
       {/* INVOICE MODAL (Keep as is just ensuring z-index) */}
       <AnimatePresence>

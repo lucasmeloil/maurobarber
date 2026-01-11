@@ -1,13 +1,27 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Calendar, Clock, User, Phone, Scissors } from 'lucide-react';
 import { useApp } from '@/app/context/AppContext';
 import { useToast } from '@/app/context/ToastContext';
 import PageBanner from '../components/PageBanner';
+import { useSearchParams } from 'next/navigation';
 
-export default function SchedulePage() {
-  const { services, addAppointment } = useApp();
+function ScheduleForm() {
+  const { services, addAppointment, team } = useApp();
+  const searchParams = useSearchParams();
+  const preSelectedBarberId = searchParams.get('barberId');
+
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedBarber, setSelectedBarber] = useState<string>('');
+  
+  const barbers = team.filter(m => m.role === 'barber');
+  
+  useEffect(() => {
+    if(preSelectedBarberId) {
+        setSelectedBarber(preSelectedBarberId);
+    }
+  }, [preSelectedBarberId]);
+
   const [formData, setFormData] = useState({
     nome: '',
     telefone: '',
@@ -42,9 +56,15 @@ export default function SchedulePage() {
         return;
     }
 
+    if (!selectedBarber && barbers.length > 0) {
+        showToast('Selecione um profissional!', 'error');
+        return;
+    }
+
     const selectedServiceObjects = services.filter(s => selectedServices.includes(s.id));
     const serviceName = selectedServiceObjects.map(s => s.name).join(' + ');
     const serviceId = selectedServices.join(',');
+    const barber = team.find(b => b.id === selectedBarber);
 
     // Attempt validation first
     const success = await addAppointment({
@@ -52,6 +72,8 @@ export default function SchedulePage() {
         phone: formData.telefone,
         serviceId: serviceId,
         serviceName: serviceName,
+        barberId: selectedBarber || undefined,
+        barberName: barber ? barber.name : 'Qualquer Profissional',
         price: totalPrice,
         date: formData.data,
         time: formData.hora
@@ -65,13 +87,10 @@ export default function SchedulePage() {
     showToast('Agendamento enviado com sucesso!', 'success');
     setFormData({ nome: '', telefone: '', data: '', hora: '', observacoes: '' });
     setSelectedServices([]);
+    setSelectedBarber('');
   };
 
   return (
-    <>
-      <PageBanner title="Agendamento" subtitle="Reserve seu momento" />
-      <div className="container mx-auto px-4 py-16">
-      
       <div className="max-w-2xl mx-auto bg-[#111] border border-white/10 p-8 rounded-2xl shadow-2xl">
         <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -129,6 +148,28 @@ export default function SchedulePage() {
                 )}
             </div>
 
+            {barbers.length > 0 && (
+                <div>
+                    <label className="block text-sm text-gray-400 mb-4 flex items-center gap-2">
+                        <User size={16} /> Profissional
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {barbers.map(b => (
+                            <div 
+                                key={b.id}
+                                onClick={() => setSelectedBarber(b.id)}
+                                className={`cursor-pointer border rounded-xl p-3 flex flex-col items-center gap-2 transition-all ${selectedBarber === b.id ? 'bg-white text-black border-white' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}
+                            >
+                                <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-800 flex items-center justify-center font-bold">
+                                    {b.name.substring(0, 2).toUpperCase()}
+                                </div>
+                                <span className="font-medium text-sm text-center">{b.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
@@ -176,7 +217,16 @@ export default function SchedulePage() {
             </button>
         </form>
       </div>
-    </div>
-    </>
   );
+}
+
+export default function SchedulePage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-white">Carregando agendamento...</div>}>
+            <PageBanner title="Agendamento" subtitle="Reserve seu momento" />
+            <div className="container mx-auto px-4 py-16">
+                <ScheduleForm />
+            </div>
+        </Suspense>
+    );
 }

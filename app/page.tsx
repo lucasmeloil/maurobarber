@@ -5,8 +5,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Phone } from 'lucide-react';
+import { Phone, User } from 'lucide-react';
 import ImageCard from './components/ImageCard';
+import { useApp } from './context/AppContext';
 
 const slides = [
   {
@@ -25,6 +26,8 @@ const slides = [
 
 export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const { team } = useApp();
+  const barbers = team.filter(m => m.role === 'barber');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -167,6 +170,52 @@ export default function Home() {
             </div>
         </div>
       </section>
+
+      {/* Team/Barbers Section */}
+      {barbers.length > 0 && (
+        <section className="py-24 bg-black">
+            <div className="container mx-auto px-4">
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="text-center mb-16"
+                >
+                    <h2 className="text-3xl md:text-5xl font-bold font-heading text-white mb-4">Nossos Profissionais</h2>
+                    <p className="text-gray-400 max-w-2xl mx-auto">Escolha seu barbeiro de preferência e agende seu horário.</p>
+                </motion.div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-center">
+                    {barbers.map((barber, i) => (
+                        <motion.div
+                            key={barber.id}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            whileInView={{ opacity: 1, scale: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: i * 0.1 }}
+                        >
+                            <Link href={`/agendar?barberId=${barber.id}`} className="block group">
+                                <div className="bg-[#111] p-6 rounded-2xl border border-white/5 hover:border-white/20 transition-all text-center group-hover:bg-[#1a1a1a]">
+                                    <div className="w-24 h-24 mx-auto bg-zinc-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        {barber.avatar ? (
+                                            <img src={barber.avatar} alt={barber.name} className="w-full h-full rounded-full object-cover" />
+                                        ) : (
+                                            <User size={40} className="text-gray-400" />
+                                        )}
+                                    </div>
+                                    <h3 className="text-xl font-bold text-white mb-1 group-hover:text-blue-400 transition-colors">{barber.name}</h3>
+                                    <p className="text-sm text-gray-400 mb-4">{barber.role === 'barber' ? 'Barbeiro' : 'Profissional'}</p>
+                                    <span className="inline-block px-4 py-2 bg-white text-black text-sm font-bold rounded-full group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                                        Agendar
+                                    </span>
+                                </div>
+                            </Link>
+                        </motion.div>
+                    ))}
+                </div>
+            </div>
+        </section>
+      )}
 
       {/* Testimonials Section */}
       <section className="py-24 bg-black border-y border-white/5">

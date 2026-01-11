@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
-import { LayoutDashboard, Calendar, Scissors, ChevronLeft, ChevronRight, LogOut, Menu, X, Package } from 'lucide-react';
+import { LayoutDashboard, Calendar, Scissors, ChevronLeft, ChevronRight, LogOut, Menu, X, Package, Users } from 'lucide-react';
 import { useApp } from '@/app/context/AppContext';
 import { useState, useEffect } from 'react';
 
@@ -11,6 +11,7 @@ const menuItems = [
   { label: "Agendamentos", path: "/admin/agendamentos", icon: Calendar },
   { label: "Serviços", path: "/admin/servicos", icon: Scissors },
   { label: "Produtos", path: "/admin/produtos", icon: Package },
+  { label: "Equipe", path: "/admin/equipe", icon: Users },
 ];
 
 interface AdminSidebarProps {

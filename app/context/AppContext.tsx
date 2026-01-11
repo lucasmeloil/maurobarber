@@ -18,6 +18,8 @@ export type Appointment = {
   phone: string;
   serviceId: string;
   serviceName: string;
+  barberId?: string;
+  barberName?: string;
   date: string;
   time: string;
   price: number;
@@ -40,12 +42,25 @@ export type Product = {
   stock: number;
 };
 
+export type TeamMember = {
+  id: string;
+  name: string;
+  role: 'barber' | 'admin' | 'client' | 'receptionist';
+  phone?: string;
+  email?: string;
+  avatar?: string;
+};
+
 interface AppContextType {
   services: Service[];
   appointments: Appointment[];
   products: Product[];
   customRevenues: CustomRevenue[]; 
+  team: TeamMember[];
   totalRevenue: number; 
+  addTeamMember: (member: Omit<TeamMember, 'id'>) => Promise<boolean>;
+  updateTeamMember: (id: string, member: Omit<TeamMember, 'id'>) => Promise<boolean>;
+  deleteTeamMember: (id: string) => Promise<boolean>;
   addAppointment: (appt: Omit<Appointment, 'id' | 'status' | 'viewed'>) => Promise<boolean>;
   updateAppointmentStatus: (id: string, status: Appointment['status']) => void;
   updateAppointment: (id: string, data: Partial<Appointment>) => void;
@@ -59,7 +74,7 @@ interface AppContextType {
   deleteProduct: (id: string) => Promise<boolean>;
   addCustomRevenue: (revenue: Omit<CustomRevenue, 'id'>) => Promise<boolean>; 
   deleteCustomRevenue: (id: string) => Promise<boolean>;
-  isSlotAvailable: (date: string, time: string, serviceId: string) => boolean;
+  isSlotAvailable: (date: string, time: string, serviceId: string, barberId?: string, excludeAppointmentId?: string) => boolean;
   loadingAuth: boolean;
   currentUser: any;
   logout: () => Promise<void>;
@@ -75,6 +90,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [customRevenues, setCustomRevenues] = useState<CustomRevenue[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [team, setTeam] = useState<TeamMember[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
@@ -145,6 +161,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  // Team Listener
+  useEffect(() => {
+    const q = query(collection(db, "team"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const members: TeamMember[] = [];
+        snapshot.forEach((doc) => {
+            members.push({ id: doc.id, ...doc.data() } as TeamMember);
+        });
+        setTeam(members);
+    });
+    return () => unsubscribe();
+  }, []);
+
 
   // Helpers
   const parseDuration = (durationStr: string): number => {
@@ -173,15 +202,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return total;
   };
 
-  const isSlotAvailable = (date: string, time: string, serviceId: string) => {
+  const isSlotAvailable = (date: string, time: string, serviceId: string, barberId?: string, excludeAppointmentId?: string) => {
     const newStart = timeToMinutes(time);
     const newDuration = getTotalDuration(serviceId);
     const newEnd = newStart + newDuration;
 
     return !appointments.some(a => {
+        if (excludeAppointmentId && a.id === excludeAppointmentId) return false;
         if (a.date !== date) return false;
         if (a.status !== 'pending' && a.status !== 'confirmed') return false;
         
+        // If checking for a specific barber, only consider appointments for that barber
+        // If appointment has no barberId, assume it's a general appointment (affects everyone or specific logic)
+        // For now, if we are checking for Barber X, we only care if Barber X is busy.
+        if (barberId && a.barberId && a.barberId !== barberId) return false;
+
         const apptDuration = getTotalDuration(a.serviceId);
         const existingStart = timeToMinutes(a.time);
         const existingEnd = existingStart + apptDuration;
@@ -193,7 +228,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addAppointment = async (appt: Omit<Appointment, 'id' | 'status' | 'viewed'>): Promise<boolean> => {
     // Note: We now pass serviceId to check collisions based on duration
-    if (isSlotAvailable && !isSlotAvailable(appt.date, appt.time, appt.serviceId)) {
+    if (isSlotAvailable && !isSlotAvailable(appt.date, appt.time, appt.serviceId, appt.barberId)) {
         return false;
     }
 
@@ -315,6 +350,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addTeamMember = async (member: Omit<TeamMember, 'id'>): Promise<boolean> => {
+    try {
+        await addDoc(collection(db, "team"), member);
+        return true;
+    } catch (error) {
+        console.error("Error adding team member:", error);
+        return false;
+    }
+  };
+
+  const updateTeamMember = async (id: string, member: Omit<TeamMember, 'id'>): Promise<boolean> => {
+    try {
+        const docRef = doc(db, "team", id);
+        await updateDoc(docRef, member);
+        return true;
+    } catch (error) {
+        console.error("Error updating team member:", error);
+        return false;
+    }
+  };
+
+  const deleteTeamMember = async (id: string): Promise<boolean> => {
+    try {
+        await deleteDoc(doc(db, "team", id));
+        return true;
+    } catch (error) {
+        console.error("Error deleting team member:", error);
+        return false;
+    }
+  };
+
   const unreadNotifications = appointments.filter(a => !a.viewed && a.status === 'pending').length;
 
   const totalRevenue = 
@@ -328,7 +394,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       services, 
       appointments, 
       customRevenues,
+      team,
       totalRevenue,
+      addTeamMember,
+      updateTeamMember,
+      deleteTeamMember,
       addAppointment, 
       isSlotAvailable,
       updateAppointmentStatus, 
