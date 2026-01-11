@@ -32,11 +32,19 @@ export type CustomRevenue = {
   date: string;
 };
 
+export type Product = {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+};
+
 interface AppContextType {
   services: Service[];
   appointments: Appointment[];
-  customRevenues: CustomRevenue[]; // Added custom revenues
-  totalRevenue: number; // Added derived total revenue
+  products: Product[];
+  customRevenues: CustomRevenue[]; 
+  totalRevenue: number; 
   addAppointment: (appt: Omit<Appointment, 'id' | 'status' | 'viewed'>) => Promise<boolean>;
   updateAppointmentStatus: (id: string, status: Appointment['status']) => void;
   updateAppointment: (id: string, data: Partial<Appointment>) => void;
@@ -45,7 +53,10 @@ interface AppContextType {
   addService: (service: Omit<Service, 'id'>) => Promise<boolean>;
   updateService: (id: string, service:  Omit<Service, 'id'>) => Promise<boolean>;
   deleteService: (id: string) => Promise<boolean>;
-  addCustomRevenue: (revenue: Omit<CustomRevenue, 'id'>) => Promise<boolean>; // Function to add revenue
+  addProduct: (product: Omit<Product, 'id'>) => Promise<boolean>;
+  updateProduct: (id: string, product: Omit<Product, 'id'>) => Promise<boolean>;
+  deleteProduct: (id: string) => Promise<boolean>;
+  addCustomRevenue: (revenue: Omit<CustomRevenue, 'id'>) => Promise<boolean>; 
   deleteCustomRevenue: (id: string) => Promise<boolean>;
   isSlotAvailable: (date: string, time: string) => boolean;
   loadingAuth: boolean;
@@ -245,6 +256,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deleteService,
       addCustomRevenue,
       deleteCustomRevenue,
+      products,
+      addProduct,
+      updateProduct,
+      deleteProduct,
       unreadNotifications,
       loadingAuth,
       currentUser,
