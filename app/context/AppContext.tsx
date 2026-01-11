@@ -20,7 +20,8 @@ export type Appointment = {
   serviceName: string;
   date: string;
   time: string;
-  price: number; // Added price field
+  price: number;
+  products?: { id: string; name: string; price: number; quantity: number }[];
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'noshow';
   viewed: boolean;
 };
