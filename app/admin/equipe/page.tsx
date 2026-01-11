@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useApp, TeamMember } from '@/app/context/AppContext';
-import { Plus, Search, Edit2, Trash2, X, User, Shield, UserCog, Mail, Phone, Lock } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, User, Shield, UserCog, Mail, Phone, Lock, Percent } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function TeamPage() {
@@ -16,7 +16,8 @@ export default function TeamPage() {
     role: 'client', // Default role
     email: '',
     phone: '',
-    password: ''
+    password: '',
+    commissionRate: '50' // Default commission 50%
   });
 
   const filteredTeam = team.filter(member => 
@@ -28,12 +29,16 @@ export default function TeamPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Parse commission
+    const commission = formData.role === 'barber' ? parseFloat(formData.commissionRate) || 0 : undefined;
+
     if (editingId) {
       await updateTeamMember(editingId, {
           name: formData.name,
           role: formData.role as any, 
           email: formData.email,
-          phone: formData.phone
+          phone: formData.phone,
+          commissionRate: commission
       });
     } else {
       await addTeamMember({
@@ -41,7 +46,8 @@ export default function TeamPage() {
           role: formData.role as any,
           email: formData.email,
           phone: formData.phone,
-          avatar: '' 
+          avatar: '',
+          commissionRate: commission
       }, formData.password);
     }
     
@@ -50,7 +56,7 @@ export default function TeamPage() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', role: 'client', email: '', phone: '', password: '' });
+    setFormData({ name: '', role: 'client', email: '', phone: '', password: '', commissionRate: '50' });
     setEditingId(null);
   };
 
@@ -60,7 +66,8 @@ export default function TeamPage() {
         role: member.role,
         email: member.email || '',
         phone: member.phone || '',
-        password: '' // Password not editable directly here for security/complexity
+        password: '', // Password not editable directly here
+        commissionRate: member.commissionRate ? member.commissionRate.toString() : '50'
     });
     setEditingId(member.id);
     setShowModal(true);
@@ -149,6 +156,12 @@ export default function TeamPage() {
                                 <span>{member.phone}</span>
                             </div>
                         )}
+                        {member.role === 'barber' && member.commissionRate !== undefined && (
+                             <div className="flex items-center gap-2 text-[#d4af37]">
+                                <Percent size={14} className="min-w-[14px]" />
+                                <span>Comissão: {member.commissionRate}%</span>
+                             </div>
+                        )}
                     </div>
                 </motion.div>
             ))}
@@ -177,7 +190,7 @@ export default function TeamPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 20 }}
-                    className="relative bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md p-6 overflow-hidden"
+                    className="relative bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md p-6 overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
                 >
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-xl font-bold text-white">
@@ -214,6 +227,26 @@ export default function TeamPage() {
                                 <option value="admin">Administrador</option>
                             </select>
                         </div>
+
+                         {/* Commission Field - Only for Barbers */}
+                         {formData.role === 'barber' && (
+                             <div>
+                                <label className="block text-sm text-[#d4af37] mb-1 font-bold">Comissão (%)</label>
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="number" 
+                                        min="0"
+                                        max="100"
+                                        value={formData.commissionRate}
+                                        onChange={e => setFormData({...formData, commissionRate: e.target.value})}
+                                        className="w-full bg-black border border-[#d4af37]/50 rounded-lg p-3 text-white focus:border-[#d4af37] transition-colors outline-none"
+                                        placeholder="Ex: 50"
+                                    />
+                                    <span className="text-[#d4af37] font-bold">%</span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">Porcentagem que o barbeiro recebe por serviço.</p>
+                             </div>
+                        )}
 
                         <div>
                             <label className="block text-sm text-gray-400 mb-1">Email</label>

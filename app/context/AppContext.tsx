@@ -36,6 +36,14 @@ export type CustomRevenue = {
   date: string;
 };
 
+export type Expense = {
+  id: string;
+  description: string;
+  value: number;
+  date: string;
+  category: string;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -51,6 +59,7 @@ export type TeamMember = {
   email?: string;
   avatar?: string;
   uid?: string;
+  commissionRate?: number;
 };
 
 interface AppContextType {
@@ -58,6 +67,7 @@ interface AppContextType {
   appointments: Appointment[];
   products: Product[];
   customRevenues: CustomRevenue[]; 
+  expenses: Expense[];
   team: TeamMember[];
   totalRevenue: number; 
   addTeamMember: (member: Omit<TeamMember, 'id'>, password?: string) => Promise<boolean>;
@@ -76,6 +86,8 @@ interface AppContextType {
   deleteProduct: (id: string) => Promise<boolean>;
   addCustomRevenue: (revenue: Omit<CustomRevenue, 'id'>) => Promise<boolean>; 
   deleteCustomRevenue: (id: string) => Promise<boolean>;
+  addExpense: (expense: Omit<Expense, 'id'>) => Promise<boolean>;
+  deleteExpense: (id: string) => Promise<boolean>;
   isSlotAvailable: (date: string, time: string, serviceId: string, barberId?: string, excludeAppointmentId?: string) => boolean;
   loadingAuth: boolean;
   currentUser: any;
@@ -91,6 +103,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [services, setServices] = useState<Service[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [customRevenues, setCustomRevenues] = useState<CustomRevenue[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -146,6 +159,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             revs.push({ id: doc.id, ...doc.data() } as CustomRevenue);
         });
         setCustomRevenues(revs);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Expenses Listener
+  useEffect(() => {
+    const q = query(collection(db, "expenses"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const exps: Expense[] = [];
+        snapshot.forEach((doc) => {
+            exps.push({ id: doc.id, ...doc.data() } as Expense);
+        });
+        setExpenses(exps);
     });
     return () => unsubscribe();
   }, []);
@@ -321,6 +347,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addExpense = async (expense: Omit<Expense, 'id'>): Promise<boolean> => {
+    try {
+        await addDoc(collection(db, "expenses"), expense);
+        return true;
+    } catch (error) {
+        console.error("Error adding expense:", error);
+        return false;
+    }
+  };
+
+  const deleteExpense = async (id: string): Promise<boolean> => {
+    try {
+        await deleteDoc(doc(db, "expenses", id));
+        return true;
+    } catch (error) {
+        console.error("Error deleting expense:", error);
+        return false;
+    }
+  };
+
   const addProduct = async (product: Omit<Product, 'id'>): Promise<boolean> => {
     try {
         await addDoc(collection(db, "products"), product);
@@ -428,6 +474,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       services, 
       appointments, 
       customRevenues,
+      expenses,
       team,
       totalRevenue,
       addTeamMember,
@@ -444,6 +491,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deleteService,
       addCustomRevenue,
       deleteCustomRevenue,
+      addExpense,
+      deleteExpense,
       products,
       addProduct,
       updateProduct,
