@@ -1,4 +1,9 @@
 'use client';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import AdminSidebar from './components/AdminSidebar';
+import NotificationSystem from './components/NotificationSystem';
 import { useApp } from '../context/AppContext';
 
 export default function AdminLayout({
