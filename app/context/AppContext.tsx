@@ -1,9 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { db, auth } from '@/lib/firebase';
+import { db, auth, firebaseConfig } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, getDocs } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, getAuth, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { initializeApp, deleteApp } from "firebase/app";
 
 export type Service = {
   id: string;
@@ -49,6 +50,7 @@ export type TeamMember = {
   phone?: string;
   email?: string;
   avatar?: string;
+  uid?: string;
 };
 
 interface AppContextType {
@@ -58,7 +60,7 @@ interface AppContextType {
   customRevenues: CustomRevenue[]; 
   team: TeamMember[];
   totalRevenue: number; 
-  addTeamMember: (member: Omit<TeamMember, 'id'>) => Promise<boolean>;
+  addTeamMember: (member: Omit<TeamMember, 'id'>, password?: string) => Promise<boolean>;
   updateTeamMember: (id: string, member: Omit<TeamMember, 'id'>) => Promise<boolean>;
   deleteTeamMember: (id: string) => Promise<boolean>;
   addAppointment: (appt: Omit<Appointment, 'id' | 'status' | 'viewed'>) => Promise<boolean>;
@@ -350,9 +352,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addTeamMember = async (member: Omit<TeamMember, 'id'>): Promise<boolean> => {
+  const addTeamMember = async (member: Omit<TeamMember, 'id'>, password?: string): Promise<boolean> => {
     try {
-        await addDoc(collection(db, "team"), member);
+        let authUid = '';
+
+        // If password is provided, try to create an Auth User
+        if (password && member.email) {
+            // Initialize a secondary app to create user without logging out the admin
+            const tempApp = initializeApp(firebaseConfig, "tempAppForCreation");
+            const tempAuth = getAuth(tempApp);
+            
+            try {
+                const userCredential = await createUserWithEmailAndPassword(tempAuth, member.email, password);
+                authUid = userCredential.user.uid;
+                
+                // Optional: Update display name immediately
+                await updateProfile(userCredential.user, {
+                   displayName: member.name
+                });
+                
+                console.log("Auth user created with UID:", authUid);
+            } catch (authError) {
+                console.error("Error creating auth user:", authError);
+                // Clean up temp app even if error
+                await deleteApp(tempApp);
+                return false; // Fail if auth fails
+            }
+            
+            // Cleanup temp app
+            await deleteApp(tempApp);
+        }
+
+        await addDoc(collection(db, "team"), {
+            ...member,
+            uid: authUid // Link to auth user if created
+        });
         return true;
     } catch (error) {
         console.error("Error adding team member:", error);

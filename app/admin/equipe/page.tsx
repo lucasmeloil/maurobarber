@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useApp, TeamMember } from '@/app/context/AppContext';
-import { Plus, Search, Edit2, Trash2, X, User, Shield, UserCog, Mail, Phone } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, User, Shield, UserCog, Mail, Phone, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function TeamPage() {
@@ -15,7 +15,8 @@ export default function TeamPage() {
     name: '',
     role: 'client', // Default role
     email: '',
-    phone: ''
+    phone: '',
+    password: ''
   });
 
   const filteredTeam = team.filter(member => 
@@ -30,7 +31,7 @@ export default function TeamPage() {
     if (editingId) {
       await updateTeamMember(editingId, {
           name: formData.name,
-          role: formData.role as any, // Cast to avoid strict literal checking issues
+          role: formData.role as any, 
           email: formData.email,
           phone: formData.phone
       });
@@ -40,8 +41,8 @@ export default function TeamPage() {
           role: formData.role as any,
           email: formData.email,
           phone: formData.phone,
-          avatar: '' // Placeholder for now
-      });
+          avatar: '' 
+      }, formData.password);
     }
     
     setShowModal(false);
@@ -49,7 +50,7 @@ export default function TeamPage() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', role: 'client', email: '', phone: '' });
+    setFormData({ name: '', role: 'client', email: '', phone: '', password: '' });
     setEditingId(null);
   };
 
@@ -58,7 +59,8 @@ export default function TeamPage() {
         name: member.name,
         role: member.role,
         email: member.email || '',
-        phone: member.phone || ''
+        phone: member.phone || '',
+        password: '' // Password not editable directly here for security/complexity
     });
     setEditingId(member.id);
     setShowModal(true);
@@ -214,15 +216,35 @@ export default function TeamPage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm text-gray-400 mb-1">Email (Opcional)</label>
+                            <label className="block text-sm text-gray-400 mb-1">Email</label>
                             <input 
                                 type="email" 
                                 value={formData.email}
                                 onChange={e => setFormData({...formData, email: e.target.value})}
                                 className="w-full bg-black border border-gray-700 rounded-lg p-3 text-white focus:border-white transition-colors outline-none"
                                 placeholder="joao@exemplo.com"
+                                required={formData.role !== 'client' || !!formData.password}
                             />
                         </div>
+
+                        {/* Password Field - Only for new users (for now) */}
+                        {!editingId && (
+                            <div>
+                                <label className="block text-sm text-gray-400 mb-1 flex items-center gap-2">
+                                    <Lock size={12} /> Senha de Acesso
+                                </label>
+                                <input 
+                                    type="password"
+                                    value={formData.password}
+                                    onChange={e => setFormData({...formData, password: e.target.value})}
+                                    className="w-full bg-black border border-gray-700 rounded-lg p-3 text-white focus:border-white transition-colors outline-none"
+                                    placeholder="Mínimo 6 caracteres"
+                                    minLength={6}
+                                    required={formData.role !== 'client'} // Required for staff
+                                />
+                                <p className="text-xs text-gray-600 mt-1">Necessário para login de funcionários (Admin/Barbeiro).</p>
+                            </div>
+                        )}
 
                         <div>
                             <label className="block text-sm text-gray-400 mb-1">Telefone (Opcional)</label>
