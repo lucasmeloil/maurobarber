@@ -2,7 +2,14 @@
 import { useState } from 'react';
 import { useApp } from '@/app/context/AppContext';
 import { Plus, Edit, Trash2, Save, X, Package } from 'lucide-react';
-import { useToast } from '@/app/hooks/use-toast';
+
+// Simple toast hook for now since we don't have the file
+const useToast = () => {
+    const showToast = (message: string, type: 'success' | 'error') => {
+        alert(`${type === 'success' ? '✅' : '❌'} ${message}`);
+    };
+    return { showToast };
+};
 
 export default function ProductsAdminPage() {
   const { products, addProduct, updateProduct, deleteProduct } = useApp();

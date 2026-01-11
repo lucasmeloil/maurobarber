@@ -73,6 +73,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [services, setServices] = useState<Service[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [customRevenues, setCustomRevenues] = useState<CustomRevenue[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
@@ -126,6 +127,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             revs.push({ id: doc.id, ...doc.data() } as CustomRevenue);
         });
         setCustomRevenues(revs);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Products Listener
+  useEffect(() => {
+    const q = query(collection(db, "products"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const prods: Product[] = [];
+        snapshot.forEach((doc) => {
+            prods.push({ id: doc.id, ...doc.data() } as Product);
+        });
+        setProducts(prods);
     });
     return () => unsubscribe();
   }, []);
@@ -227,6 +241,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return true;
     } catch (error) {
         console.error("Error deleting revenue:", error);
+        return false;
+    }
+  };
+
+  const addProduct = async (product: Omit<Product, 'id'>): Promise<boolean> => {
+    try {
+        await addDoc(collection(db, "products"), product);
+        return true;
+    } catch (error) {
+        console.error("Error adding product:", error);
+        return false;
+    }
+  };
+
+  const updateProduct = async (id: string, updated: Omit<Product, 'id'>): Promise<boolean> => {
+    try {
+        const prodRef = doc(db, "products", id);
+        await updateDoc(prodRef, updated);
+        return true;
+    } catch (error) {
+        console.error("Error updating product:", error);
+        return false;
+    }
+  };
+
+  const deleteProduct = async (id: string): Promise<boolean> => {
+    try {
+        await deleteDoc(doc(db, "products", id));
+        return true;
+    } catch (error) {
+        console.error("Error deleting product:", error);
         return false;
     }
   };
