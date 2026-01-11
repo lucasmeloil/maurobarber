@@ -34,7 +34,7 @@ export default function AppointmentsAdminPage() {
         return;
     }
 
-    if(!isSlotAvailable(newAppt.date, newAppt.time)) {
+    if(!isSlotAvailable(newAppt.date, newAppt.time, newAppt.serviceId)) {
         showToast('Horário indisponível!', 'error');
         return;
     }

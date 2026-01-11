@@ -59,7 +59,7 @@ interface AppContextType {
   deleteProduct: (id: string) => Promise<boolean>;
   addCustomRevenue: (revenue: Omit<CustomRevenue, 'id'>) => Promise<boolean>; 
   deleteCustomRevenue: (id: string) => Promise<boolean>;
-  isSlotAvailable: (date: string, time: string) => boolean;
+  isSlotAvailable: (date: string, time: string, serviceId: string) => boolean;
   loadingAuth: boolean;
   currentUser: any;
   logout: () => Promise<void>;
@@ -146,16 +146,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
 
-  const isSlotAvailable = (date: string, time: string) => {
-    return !appointments.some(a => 
-        a.date === date && 
-        a.time === time && 
-        (a.status === 'pending' || a.status === 'confirmed')
-    );
+  // Helpers
+  const parseDuration = (durationStr: string): number => {
+    if(!durationStr) return 30;
+    const clean = durationStr.toLowerCase().replace(/\s/g, '');
+    if(clean.includes('h') && !clean.includes('min')) {
+         const h = parseInt(clean);
+         return isNaN(h) ? 30 : h * 60;
+    }
+    const mins = parseInt(clean.replace(/\D/g, ''));
+    return isNaN(mins) ? 30 : mins;
+  };
+
+  const timeToMinutes = (time: string): number => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  const getTotalDuration = (serviceIdsStr: string): number => {
+      const ids = serviceIdsStr.split(',');
+      let total = 0;
+      ids.forEach(id => {
+          const s = services.find(svc => svc.id === id.trim());
+          total += s ? parseDuration(s.duration) : 30;
+      });
+      return total;
+  };
+
+  const isSlotAvailable = (date: string, time: string, serviceId: string) => {
+    const newStart = timeToMinutes(time);
+    const newDuration = getTotalDuration(serviceId);
+    const newEnd = newStart + newDuration;
+
+    return !appointments.some(a => {
+        if (a.date !== date) return false;
+        if (a.status !== 'pending' && a.status !== 'confirmed') return false;
+        
+        const apptDuration = getTotalDuration(a.serviceId);
+        const existingStart = timeToMinutes(a.time);
+        const existingEnd = existingStart + apptDuration;
+
+        // Check for overlap: StartA < EndB && EndA > StartB
+        return (newStart < existingEnd && newEnd > existingStart);
+    });
   };
 
   const addAppointment = async (appt: Omit<Appointment, 'id' | 'status' | 'viewed'>): Promise<boolean> => {
-    if (!isSlotAvailable(appt.date, appt.time)) {
+    // Note: We now pass serviceId to check collisions based on duration
+    if (isSlotAvailable && !isSlotAvailable(appt.date, appt.time, appt.serviceId)) {
         return false;
     }
 
