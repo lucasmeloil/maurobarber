@@ -11,7 +11,7 @@ export default function WhatsAppFloatingButton() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const message = `Olá, sou ${formData.nome}. Gostaria de agendar um ${formData.servico || 'horário'}.`;
-    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    const url = `https://wa.me/557999914079?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
     setIsOpen(false);
     setFormData({ nome: '', servico: '' });

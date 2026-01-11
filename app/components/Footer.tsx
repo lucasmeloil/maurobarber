@@ -50,7 +50,7 @@ export default function Footer() {
              <p className="text-xs text-gray-500">Rua Josué Passos, 821</p>
              <p className="text-xs text-gray-500 font-bold hover:text-black transition-colors">
                 <a href="https://wa.me/557999914079" target="_blank" rel="noopener noreferrer">
-                    +55 (79) 99914-079
+                    +55 (79) 9991-4079
                 </a>
              </p>
           </div>

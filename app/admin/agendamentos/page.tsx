@@ -6,8 +6,49 @@ import { Check, X, Clock, Edit2, Trash2, CalendarCheck, UserX, Plus, Minus, Doll
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AppointmentsAdminPage() {
-  const { appointments, products, updateAppointmentStatus, updateAppointment, deleteAppointment } = useApp();
+  const { appointments, products, updateAppointmentStatus, updateAppointment, deleteAppointment, services, addAppointment, isSlotAvailable } = useApp();
   const { showToast } = useToast();
+  
+  const [isCreating, setIsCreating] = useState(false);
+  const [newAppt, setNewAppt] = useState({
+    clientName: '',
+    phone: '',
+    date: '',
+    time: '',
+    serviceId: '',
+    serviceName: '',
+    price: 0
+  });
+
+  const handleCreate = async () => {
+    if(!newAppt.clientName || !newAppt.phone || !newAppt.date || !newAppt.time || !newAppt.serviceId) {
+        showToast('Preencha todos os campos!', 'error');
+        return;
+    }
+
+    if(!isSlotAvailable(newAppt.date, newAppt.time)) {
+        showToast('Horário indisponível!', 'error');
+        return;
+    }
+
+    const success = await addAppointment({
+        clientName: newAppt.clientName,
+        phone: newAppt.phone,
+        serviceId: newAppt.serviceId,
+        serviceName: newAppt.serviceName,
+        date: newAppt.date,
+        time: newAppt.time,
+        price: newAppt.price
+    });
+
+    if(success) {
+        showToast('Agendamento criado com sucesso!', 'success');
+        setIsCreating(false);
+        setNewAppt({ clientName: '', phone: '', date: '', time: '', serviceId: '', serviceName: '', price: 0 });
+    } else {
+        showToast('Erro ao criar agendamento.', 'error');
+    }
+  };
   
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Appointment>>({});
@@ -110,8 +151,77 @@ export default function AppointmentsAdminPage() {
     <div className="relative">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold font-heading">Gerenciar Agendamentos</h1>
-        <div className="text-gray-400">Total: {appointments.length}</div>
+        <div className="flex gap-4">
+            <button 
+                onClick={() => setIsCreating(true)}
+                className="bg-white text-black px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-200 transition-colors font-medium"
+            >
+                <Plus size={20}/>
+                Novo Agendamento
+            </button>
+            <div className="text-gray-400 self-center">Total: {appointments.length}</div>
+        </div>
       </div>
+
+      {isCreating && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-2xl p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold">Novo Agendamento Manual</h2>
+                    <button onClick={() => setIsCreating(false)} className="text-gray-400 hover:text-white"><X size={24}/></button>
+                </div>
+                
+                <div className="space-y-4">
+                    <input 
+                        className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white"
+                        placeholder="Nome do Cliente"
+                        value={newAppt.clientName}
+                        onChange={e => setNewAppt({...newAppt, clientName: e.target.value})}
+                    />
+                    <input 
+                        className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white"
+                        placeholder="Telefone (apenas números)"
+                        value={newAppt.phone}
+                        onChange={e => setNewAppt({...newAppt, phone: e.target.value})}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                        <input 
+                            type="date"
+                            className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white"
+                            value={newAppt.date}
+                            onChange={e => setNewAppt({...newAppt, date: e.target.value})}
+                        />
+                        <input 
+                            type="time"
+                            className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white"
+                            value={newAppt.time}
+                            onChange={e => setNewAppt({...newAppt, time: e.target.value})}
+                        />
+                    </div>
+                    <select 
+                        className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white"
+                        value={newAppt.serviceId}
+                        onChange={e => {
+                            const svc = services.find(s => s.id === e.target.value);
+                            if(svc) setNewAppt({...newAppt, serviceId: svc.id, serviceName: svc.name, price: svc.price});
+                        }}
+                    >
+                        <option value="">Selecione um Serviço</option>
+                        {services.map(s => (
+                            <option key={s.id} value={s.id}>{s.name} - R$ {s.price}</option>
+                        ))}
+                    </select>
+
+                    <button 
+                        onClick={handleCreate}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg mt-4"
+                    >
+                        Criar Agendamento
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
 
       <div className="grid gap-4 z-0 relative">
         {appointments.length === 0 ? (
