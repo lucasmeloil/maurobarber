@@ -191,7 +191,7 @@ export default function FinancePage() {
     doc.setTextColor(0,0,0); // Reset
 
     // Prepare table data logic
-    const tableRows = [];
+    const tableRows: any[] = [];
     
     // Mix and sort all transactions
     const allTransactions = [
