@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   title: "Mauro Barber",
   description: "Estilo e precisão. Sua barbearia de confiança.",
   icons: {
-    icon: "/assets/logo-mauro-barber.png", 
+    icon: "/favicon-new.png", 
   }
 };
 

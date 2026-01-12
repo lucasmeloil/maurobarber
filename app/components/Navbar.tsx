@@ -24,11 +24,11 @@ export default function Navbar() {
         <header className="fixed top-0 w-full min-h-[70px] md:min-h-[80px] bg-white/90 md:bg-white/80 backdrop-blur-md z-50 flex items-center justify-between px-4 md:px-8 lg:px-16 border-b border-black/10">
             <Link href="/" className="z-50 relative">
                 <Image 
-                    src="/img/logo.png" 
+                    src="/favicon-new.png" 
                     width={120} 
                     height={40} 
                     alt="Mauro Barber Logo" 
-                    className="w-auto h-10 md:h-12 object-contain"
+                    className="w-auto h-12 md:h-16 object-contain"
                 />
             </Link>
             
