@@ -222,7 +222,7 @@ export default function FinancePage() {
         },
         didParseCell: (data) => {
             if (data.section === 'body' && data.column.index === 4) {
-                 const rawVal = data.row.raw[2]; // Check Type
+                 const rawVal = (data.row.raw as any)[2]; // Check Type
                  if (rawVal === 'Despesa') {
                      data.cell.styles.textColor = [192, 0, 0];
                  } else {
