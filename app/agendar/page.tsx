@@ -7,7 +7,7 @@ import PageBanner from '../components/PageBanner';
 import { useSearchParams } from 'next/navigation';
 
 function ScheduleForm() {
-  const { services, addAppointment, team } = useApp();
+  const { services, addAppointment, team, isSlotAvailable } = useApp();
   const searchParams = useSearchParams();
   const preSelectedBarberId = searchParams.get('barberId');
 
@@ -60,13 +60,17 @@ function ScheduleForm() {
         showToast('Selecione um profissional!', 'error');
         return;
     }
+    
+    if (!formData.hora) {
+        showToast('Selecione um horário!', 'error');
+        return;
+    }
 
     const selectedServiceObjects = services.filter(s => selectedServices.includes(s.id));
     const serviceName = selectedServiceObjects.map(s => s.name).join(' + ');
     const serviceId = selectedServices.join(',');
     const barber = team.find(b => b.id === selectedBarber);
 
-    // Attempt validation first
     const success = await addAppointment({
         clientName: formData.nome,
         phone: formData.telefone,
@@ -89,6 +93,13 @@ function ScheduleForm() {
     setSelectedServices([]);
     setSelectedBarber('');
   };
+
+  // Generate time slots from 09:00 to 20:00
+  const timeSlots = [];
+  for (let h = 9; h < 20; h++) {
+      timeSlots.push(`${h.toString().padStart(2, '0')}:00`);
+      timeSlots.push(`${h.toString().padStart(2, '0')}:30`);
+  }
 
   return (
       <div className="max-w-2xl mx-auto bg-[#111] border border-white/10 p-8 rounded-2xl shadow-2xl">
@@ -170,37 +181,67 @@ function ScheduleForm() {
                 </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
-                        <Calendar size={16} /> Data
-                    </label>
-                    <input 
-                        type="date" 
-                        name="data"
-                        value={formData.data}
-                        onChange={handleChange}
-                        className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors"
-                        required
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
-                        <Clock size={16} /> Hora
-                    </label>
-                    <input 
-                        type="time" 
-                        name="hora"
-                        value={formData.hora}
-                        onChange={handleChange}
-                        className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors"
-                        required
-                    />
-                </div>
+            <div>
+                 <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
+                    <Calendar size={16} /> Data
+                </label>
+                <input 
+                    type="date" 
+                    name="data"
+                    value={formData.data}
+                    onChange={handleChange}
+                    className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors"
+                    required
+                />
             </div>
 
+            {/* Time Grid Selection */}
+            {formData.data && selectedBarber && selectedServices.length > 0 ? (
+                 <div className="animate-fade-in">
+                    <label className="block text-sm text-gray-400 mb-4 flex items-center gap-2">
+                        <Clock size={16} /> Horários Disponíveis
+                    </label>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                        {timeSlots.map((time) => {
+                            // Check availability using context logic
+                            const serviceId = selectedServices.join(',');
+                            const available = isSlotAvailable(formData.data, time, serviceId, selectedBarber);
+                            
+                            return (
+                                <button
+                                    key={time}
+                                    type="button"
+                                    disabled={!available}
+                                    onClick={() => setFormData({...formData, hora: time})}
+                                    className={`
+                                        py-2 px-1 rounded-lg text-sm font-bold transition-all border
+                                        ${!available 
+                                            ? 'bg-red-900/10 border-red-900/30 text-red-500/50 cursor-not-allowed decoration-red-900 line-through' 
+                                            : formData.hora === time 
+                                                ? 'bg-white text-black border-white scale-105 shadow-lg' 
+                                                : 'bg-black border-gray-800 text-green-400 hover:border-green-500 hover:text-green-300'
+                                        }
+                                    `}
+                                >
+                                    {time}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {!formData.hora && (
+                        <p className="text-yellow-500/80 text-xs mt-3 text-center">Selecione um horário disponível acima.</p>
+                    )}
+                </div>
+            ) : (
+                <div className="bg-white/5 rounded-xl p-6 text-center text-gray-400 text-sm">
+                    {!selectedServices.length ? "Selecione os serviços primeiro." : 
+                     !selectedBarber ? "Selecione um profissional." : 
+                     "Selecione uma data para ver os horários."}
+                </div>
+            )}
+
             <div>
-                 <label className="block text-sm text-gray-400 mb-2">Observações</label>
+                 <label className="block text-sm text-gray-400 mb-2 mt-4">Observações</label>
                  <textarea 
                     name="observacoes"
                     value={formData.observacoes}
@@ -211,9 +252,15 @@ function ScheduleForm() {
 
             <button 
                 type="submit"
-                className="w-full bg-white text-black font-bold py-4 rounded-lg hover:bg-gray-200 transition-colors text-lg mt-4 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-95 transform"
+                disabled={!formData.hora || !formData.data || !selectedBarber || selectedServices.length === 0}
+                className={`w-full font-bold py-4 rounded-lg transition-all text-lg mt-4 shadow-lg transform
+                    ${(!formData.hora || !formData.data || !selectedBarber || selectedServices.length === 0)
+                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                        : 'bg-white text-black hover:bg-gray-200 hover:shadow-xl hover:scale-[1.02] active:scale-95'
+                    }
+                `}
             >
-                Confirmar Agendamento ({selectedServices.length} {selectedServices.length === 1 ? 'item' : 'itens'})
+                Confirmar Agendamento
             </button>
         </form>
       </div>
