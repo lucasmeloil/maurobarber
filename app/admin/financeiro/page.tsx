@@ -14,9 +14,13 @@ import {
     PieChart,
     Filter,
     ArrowRight,
-    MessageCircle
+    MessageCircle,
+    Download,
+    FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function FinancePage() {
   const { 
@@ -31,7 +35,11 @@ export default function FinancePage() {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'revenues' | 'expenses' | 'commissions'>('overview');
-  const [dateFilter, setDateFilter] = useState<'all' | 'month' | 'today'>('month');
+  const [dateFilter, setDateFilter] = useState<'all' | 'month' | 'today' | 'custom'>('month');
+  
+  // Custom Date Range State
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
 
   // Modal States
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -49,6 +57,12 @@ export default function FinancePage() {
     if (dateFilter === 'all') return true;
     if (dateFilter === 'today') return itemDate === today;
     if (dateFilter === 'month') return itemDate.startsWith(currentMonth);
+    if (dateFilter === 'custom') {
+        if (!customStart && !customEnd) return true;
+        if (customStart && !customEnd) return itemDate >= customStart;
+        if (!customStart && customEnd) return itemDate <= customEnd;
+        if (customStart && customEnd) return itemDate >= customStart && itemDate <= customEnd;
+    }
     return true;
   };
 
@@ -132,6 +146,96 @@ export default function FinancePage() {
       window.open(whatsappUrl, '_blank');
   };
 
+  const generatePDF = () => {
+    const doc = new jsPDF();
+
+    // Title
+    doc.setFontSize(22);
+    doc.text("Relatório Financeiro - Mauro Barber", 20, 20);
+    
+    // Period Info
+    doc.setFontSize(12);
+    let periodText = "Período: ";
+    if (dateFilter === 'month') periodText += "Este Mês";
+    else if (dateFilter === 'today') periodText += "Hoje";
+    else if (dateFilter === 'custom') periodText += `${customStart || 'Início'} até ${customEnd || 'Fim'}`;
+    else periodText += "Tudo";
+    
+    doc.text(periodText, 20, 30);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString()}`, 20, 36);
+
+    // Summary Box
+    doc.setDrawColor(0);
+    doc.setFillColor(240, 240, 240);
+    doc.rect(20, 45, 170, 25, 'F');
+    
+    doc.setFontSize(10);
+    doc.text("RECEITA TOTAL", 30, 55);
+    doc.setFontSize(14);
+    doc.setTextColor(0, 128, 0); // Green
+    doc.text(`R$ ${totalRevenue.toFixed(2)}`, 30, 62);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text("DESPESAS", 90, 55);
+    doc.setFontSize(14);
+    doc.setTextColor(192, 0, 0); // Red
+    doc.text(`R$ ${totalExpenses.toFixed(2)}`, 90, 62);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text("LUCRO LÍQUIDO", 150, 55);
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 192); // Blue
+    doc.text(`R$ ${netProfit.toFixed(2)}`, 150, 62);
+    doc.setTextColor(0,0,0); // Reset
+
+    // Prepare table data logic
+    const tableRows = [];
+    
+    // Mix and sort all transactions
+    const allTransactions = [
+        ...filteredRevenues.map(r => ({ date: r.date, desc: r.description, type: 'Receita Extra', val: r.value, cat: '' })),
+        ...completedAppointments.map(a => ({ date: a.date, desc: `Serviço: ${a.serviceName}`, type: 'Serviço', val: a.price || 0, cat: 'Agendamento' })),
+        ...filteredExpenses.map(e => ({ date: e.date, desc: e.description, type: 'Despesa', val: -e.value, cat: e.category }))
+    ].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    allTransactions.forEach(t => {
+        tableRows.push([
+            t.date.split('-').reverse().join('/'),
+            t.desc,
+            t.type,
+            t.cat || '-',
+            `R$ ${Math.abs(t.val).toFixed(2)}`
+        ]);
+    });
+
+    // Generate Table
+    autoTable(doc, {
+        startY: 80,
+        head: [['Data', 'Descrição', 'Tipo', 'Categoria', 'Valor']],
+        body: tableRows,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [20, 20, 20], textColor: 255 },
+        columnStyles: {
+            4: { halign: 'right' }
+        },
+        didParseCell: (data) => {
+            if (data.section === 'body' && data.column.index === 4) {
+                 const rawVal = data.row.raw[2]; // Check Type
+                 if (rawVal === 'Despesa') {
+                     data.cell.styles.textColor = [192, 0, 0];
+                 } else {
+                     data.cell.styles.textColor = [0, 128, 0];
+                 }
+            }
+        }
+    });
+
+    // Save
+    doc.save(`relatorio_maurobarber_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   return (
     <div className="space-y-8 pb-20 md:pb-0">
         {/* Header */}
@@ -141,21 +245,59 @@ export default function FinancePage() {
                 <p className="text-gray-400">Fluxo de caixa, receitas e despesas.</p>
             </div>
             
-            {/* Filter Toggle */}
-            <div className="flex bg-[#111] p-1 rounded-xl border border-white/10">
-                {(['all', 'month', 'today'] as const).map((filter) => (
-                    <button
-                        key={filter}
-                        onClick={() => setDateFilter(filter)}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                            dateFilter === filter ? 'bg-white text-black' : 'text-gray-400 hover:text-white'
-                        }`}
-                    >
-                        {filter === 'all' ? 'Tudo' : filter === 'month' ? 'Este Mês' : 'Hoje'}
-                    </button>
-                ))}
+            <div className="flex flex-col md:flex-row gap-3 items-end md:items-center">
+                 {/* Print PDF Button */}
+                 <button 
+                    onClick={generatePDF}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all"
+                 >
+                    <Download size={18} /> Baixar Relatório
+                 </button>
+
+                {/* Filter Toggle */}
+                <div className="flex bg-[#111] p-1 rounded-xl border border-white/10">
+                    {(['all', 'month', 'today', 'custom'] as const).map((filter) => (
+                        <button
+                            key={filter}
+                            onClick={() => setDateFilter(filter)}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                                dateFilter === filter ? 'bg-white text-black' : 'text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            {filter === 'all' ? 'Tudo' : filter === 'month' ? 'Este Mês' : filter === 'today' ? 'Hoje' : 'Personalizado'}
+                        </button>
+                    ))}
+                </div>
             </div>
         </div>
+
+        {/* Custom Range Inputs */}
+        {dateFilter === 'custom' && (
+            <motion.div 
+                initial={{ opacity: 0, height: 0 }} 
+                animate={{ opacity: 1, height: 'auto' }}
+                className="bg-[#111] p-4 rounded-xl border border-white/10 flex flex-col md:flex-row items-center gap-4"
+            >
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                    <span className="text-gray-400 text-sm">De:</span>
+                    <input 
+                        type="date" 
+                        value={customStart}
+                        onChange={(e) => setCustomStart(e.target.value)}
+                        className="bg-black border border-white/20 p-2 rounded-lg text-white text-sm outline-none w-full"
+                    />
+                </div>
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                    <span className="text-gray-400 text-sm">Até:</span>
+                    <input 
+                        type="date" 
+                        value={customEnd}
+                        onChange={(e) => setCustomEnd(e.target.value)}
+                        className="bg-black border border-white/20 p-2 rounded-lg text-white text-sm outline-none w-full"
+                    />
+                </div>
+            </motion.div>
+        )}
 
         {/* Financial Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -250,6 +392,7 @@ export default function FinancePage() {
                             description: `Serviço: ${a.serviceName} - ${a.clientName}`,
                             value: a.price,
                             date: a.date,
+                            category: '',
                             type: 'appt'
                         }))]
                         .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -258,17 +401,17 @@ export default function FinancePage() {
                             <div key={item.id} className="flex items-center justify-between p-4 bg-[#111] border border-white/5 rounded-xl hover:border-white/10 transition-all">
                                 <div className="flex items-center gap-4">
                                     <div className={`p-3 rounded-full ${
-                                        item.category ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'
+                                        item.category || item.type === 'Despesa' ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'
                                     }`}>
-                                        {item.category ? <ArrowDownCircle size={20} /> : <ArrowUpCircle size={20} />}
+                                        {item.category || item.type === 'Despesa' ? <ArrowDownCircle size={20} /> : <ArrowUpCircle size={20} />}
                                     </div>
                                     <div>
                                         <p className="text-white font-medium">{item.description}</p>
                                         <p className="text-xs text-gray-500">{item.date.split('-').reverse().join('/')}</p>
                                     </div>
                                 </div>
-                                <span className={`font-bold ${item.category ? 'text-red-400' : 'text-green-400'}`}>
-                                    {item.category ? '-' : '+'} R$ {Number(item.value).toFixed(2)}
+                                <span className={`font-bold ${item.category || item.type === 'Despesa' ? 'text-red-400' : 'text-green-400'}`}>
+                                    {item.category || item.type === 'Despesa' ? '-' : '+'} R$ {Number(item.value).toFixed(2)}
                                 </span>
                             </div>
                         ))}

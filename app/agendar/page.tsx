@@ -71,9 +71,15 @@ function ScheduleForm() {
     const serviceId = selectedServices.join(',');
     const barber = team.find(b => b.id === selectedBarber);
 
+    // Format phone number to ensure +55 prefix for Brazil
+    let formattedPhone = formData.telefone.replace(/\D/g, '');
+    if (formattedPhone.length >= 10 && formattedPhone.length <= 11) {
+        formattedPhone = `55${formattedPhone}`;
+    }
+
     const success = await addAppointment({
         clientName: formData.nome,
-        phone: formData.telefone,
+        phone: formattedPhone,
         serviceId: serviceId,
         serviceName: serviceName,
         barberId: selectedBarber || undefined,
