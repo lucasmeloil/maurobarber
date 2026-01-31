@@ -4,99 +4,55 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import clsx from 'clsx';
-import { Phone, User } from 'lucide-react';
+import { User, ChevronLeft, ChevronRight } from 'lucide-react';
 import ImageCard from './components/ImageCard';
 import { useApp } from './context/AppContext';
 
-const slides = [
-  {
-    headline: "Estilo e precisão",
-    subheadline: "Cortes modernos e atendimento profissional",
-    image: "/assets/slide1.png",
-    cta: { label: "Agendar agora", path: "/agendar" }
-  },
-  {
-    headline: "Sua barbearia de confiança",
-    subheadline: "Ambiente climatizado e confortável",
-    image: "/assets/slide2.png",
-    cta: { label: "Ver serviços", path: "/servicos" }
-  }
-];
 
 export default function Home() {
-  const [currentSlide, setCurrentSlide] = useState(0);
   const { team } = useApp();
   const barbers = team.filter(m => m.role === 'barber');
+  const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0);
+
+  const galleryImages = [
+    { src: "/assets/gallery/arte1.png", title: "Barba e Detalhes", subtitle: "Precisão em cada movimento." },
+    { src: "/assets/gallery/arte2.png", title: "Finalização", subtitle: "Cuidado com o contorno." },
+    { src: "/assets/gallery/arte3.png", title: "Corte Moderno", subtitle: "Degradê impecável." },
+    { src: "/assets/gallery/arte4.png", title: "Estilo Clássico", subtitle: "Tradição e modernidade." },
+    { src: "/assets/gallery/arte5.png", title: "Visual Completo", subtitle: "Barba, cabelo e bigode." },
+  ];
+
+  const nextImage = () => setCurrentGalleryIndex((prev) => (prev + 1) % galleryImages.length);
+  const prevImage = () => setCurrentGalleryIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 5000);
+    const timer = setInterval(nextImage, 5000);
     return () => clearInterval(timer);
   }, []);
 
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
-      <section className="relative h-[80vh] w-full overflow-hidden bg-black">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentSlide}
-            initial={{ opacity: 0, scale: 1.05 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.5 }}
-            className="absolute inset-0"
-          >
-            <Image
-              src={slides[currentSlide].image}
-              alt={slides[currentSlide].headline}
-              fill
-              className="object-cover opacity-60"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-          </motion.div>
-        </AnimatePresence>
-
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 z-10 pointer-events-none">
-          <motion.div 
-             key={`content-${currentSlide}`}
-             initial={{ y: 30, opacity: 0 }}
-             animate={{ y: 0, opacity: 1 }}
-             transition={{ delay: 0.5, duration: 0.8 }}
-             className="pointer-events-auto"
-          >
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold font-heading text-white mb-6 tracking-tight drop-shadow-2xl">
-                {slides[currentSlide].headline}
-            </h1>
-            <p className="text-lg md:text-2xl text-gray-200 mb-10 max-w-2xl mx-auto drop-shadow-md font-light">
-                {slides[currentSlide].subheadline}
-            </p>
-            
-            <Link
-              href={slides[currentSlide].cta.path}
-              className="inline-block px-8 py-4 bg-white text-black font-bold rounded-full text-lg hover:bg-gray-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95"
-            >
-              {slides[currentSlide].cta.label}
-            </Link>
-          </motion.div>
-        </div>
-
-        {/* Indicators */}
-        <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-3 z-20">
-            {slides.map((_, index) => (
-                <button
-                    key={index}
-                    onClick={() => setCurrentSlide(index)}
-                    aria-label={`Ir para slide ${index + 1}`}
-                    className={clsx(
-                        "w-3 h-3 rounded-full transition-all duration-300",
-                        index === currentSlide ? "bg-white w-8" : "bg-white/40 hover:bg-white/60"
-                    )}
-                />
-            ))}
+      <section className="relative min-h-screen md:h-screen w-full overflow-hidden bg-black flex items-center pt-24 pb-12">
+        {/* Hero Content */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black opacity-50" />
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-12">
+            <motion.div initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8 }} className="w-full md:w-1/2 text-center md:text-left order-2 md:order-1">
+              <h1 className="text-3xl md:text-6xl lg:text-7xl font-bold font-heading text-white mb-4 md:mb-6 tracking-tight leading-tight">Seu Estilo <br /> <span className="text-orange-500 italic">nossa marca.</span></h1>
+              <p className="text-base md:text-2xl text-gray-300 mb-6 md:mb-8 max-w-xl mx-auto md:mx-0 font-light leading-relaxed">Referência em barbearia clássica e moderna. Agende seu horário e viva essa experiência.</p>
+              <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center md:justify-start">
+                <Link href="/agendar" className="px-8 py-3 md:py-4 bg-orange-500 text-white font-bold rounded-xl text-lg hover:bg-orange-600 transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 text-center">Agendar horário</Link>
+                <Link href="/servicos" className="px-8 py-3 md:py-4 bg-transparent border border-white/20 text-white font-bold rounded-xl text-lg hover:bg-white/10 transition-all text-center">Ver Serviços</Link>
+              </div>
+            </motion.div>
+            <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="w-full md:w-[45%] lg:w-[42%] order-1 md:order-2">
+              <motion.div whileHover={{ scale: 1.02, rotateY: -5, rotateX: 3 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="relative aspect-[4/5] md:h-[700px] w-full rounded-[2rem] overflow-hidden shadow-[20px_20px_60px_rgba(0,0,0,0.8)] border border-white/10 group bg-zinc-900" style={{ perspective: 1000 }}>
+                <Image src="/assets/hero-banner.png" alt="Mauro Barber Agendamento" fill className="object-cover object-top transition-transform duration-700" priority />
+                <div className="absolute inset-0 border-2 border-orange-500/0 group-hover:border-orange-500/30 rounded-[2rem] transition-colors duration-500 pointer-events-none" />
+              </motion.div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
@@ -105,10 +61,10 @@ export default function Home() {
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div className="order-2 md:order-1">
                  <ImageCard 
-                    src="/assets/slide1.png" 
-                    alt="Interior da Barbearia" 
-                    title="Ambiente Premium"
-                    subtitle="Conforto e sofisticação para você."
+                    src="/assets/ambiente-real-original.png" 
+                    alt="Ambiente Mauro Barber" 
+                    title="Nosso Ambiente"
+                    subtitle="Conforto e qualidade para você."
                  />
             </div>
             <div className="order-1 md:order-2">
@@ -135,7 +91,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* New Gallery Section */}
+      {/* New Gallery Section with Slider */}
       <section className="py-24 bg-[#050505]">
         <div className="container mx-auto px-4">
             <motion.div 
@@ -145,28 +101,75 @@ export default function Home() {
                 className="text-center mb-16"
             >
                 <h2 className="text-3xl md:text-5xl font-bold font-heading text-white mb-4">Nossa Arte</h2>
-                <p className="text-gray-400 max-w-2xl mx-auto">Confira alguns dos nossos trabalhos e o ambiente que preparamos para você.</p>
+                <p className="text-gray-400 max-w-2xl mx-auto">Confira alguns dos nossos trabalhos e a excelência que entregamos em cada corte.</p>
             </motion.div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <ImageCard 
-                    src="/assets/slide1.png" 
-                    alt="Corte Clássico" 
-                    title="Corte Clássico"
-                    subtitle="A elegância que nunca sai de moda."
-                />
-                <ImageCard 
-                    src="/assets/slide2.png" 
-                    alt="Barboterapia" 
-                    title="Barboterapia"
-                    subtitle="Relaxamento e cuidado para sua pele."
-                />
-                 <ImageCard 
-                    src="/assets/slide1.png" 
-                    alt="Estilo Moderno" 
-                    title="Estilo Moderno"
-                    subtitle="Tendências e personalidade."
-                />
+            <div className="max-w-4xl mx-auto relative group">
+                <motion.div 
+                    className="relative aspect-[4/5] md:aspect-video w-full rounded-[2.5rem] overflow-hidden shadow-[0_30px_60px_rgba(0,0,0,0.8)] border border-white/10"
+                    whileHover={{ scale: 1.01 }}
+                    transition={{ duration: 0.5 }}
+                >
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={currentGalleryIndex}
+                            initial={{ opacity: 0, scale: 1.1 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.8 }}
+                            className="absolute inset-0"
+                        >
+                            <Image 
+                                src={galleryImages[currentGalleryIndex].src} 
+                                alt={galleryImages[currentGalleryIndex].title}
+                                fill
+                                className="object-cover"
+                            />
+                            {/* Overlay Gradient */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                            
+                            {/* Content Info */}
+                            <div className="absolute bottom-10 left-10 right-10">
+                                <motion.div
+                                    initial={{ y: 20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.3 }}
+                                    className="border-l-4 border-orange-500 pl-6"
+                                >
+                                    <h3 className="text-2xl md:text-4xl font-bold text-white mb-2">{galleryImages[currentGalleryIndex].title}</h3>
+                                    <p className="text-gray-300 text-lg">{galleryImages[currentGalleryIndex].subtitle}</p>
+                                </motion.div>
+                            </div>
+                        </motion.div>
+                    </AnimatePresence>
+
+                    {/* Navigation Buttons */}
+                    <div className="absolute inset-y-0 left-4 right-4 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <button 
+                            onClick={prevImage}
+                            className="p-3 bg-black/50 hover:bg-orange-500 text-white rounded-full backdrop-blur-md transition-all hover:scale-110"
+                        >
+                            <ChevronLeft size={30} />
+                        </button>
+                        <button 
+                            onClick={nextImage}
+                            className="p-3 bg-black/50 hover:bg-orange-500 text-white rounded-full backdrop-blur-md transition-all hover:scale-110"
+                        >
+                            <ChevronRight size={30} />
+                        </button>
+                    </div>
+
+                    {/* Indicators */}
+                    <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2">
+                        {galleryImages.map((_, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => setCurrentGalleryIndex(idx)}
+                                className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentGalleryIndex ? 'w-8 bg-orange-500' : 'w-2 bg-white/30'}`}
+                            />
+                        ))}
+                    </div>
+                </motion.div>
             </div>
         </div>
       </section>
