@@ -430,10 +430,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 console.log("Usuário Auth criado com sucesso. UID:", authUid);
             } catch (authError: any) {
                 console.error("Erro ao criar usuário no Auth:", authError);
-                // Continue saving to firestore even if auth fails, or we can handle it
-                // and return false if desired. Let's return false to be safe if auth was requested.
-                await deleteApp(tempApp);
-                return false; 
+                // If user already exists, we might want to still save to firestore
+                if (authError.code === 'auth/email-already-in-use' || authError.code === 'auth/email-already-in-white-listed-domain') {
+                    console.log("Usuário já existe no Auth. Tentando prosseguir com Firestore...");
+                } else {
+                    await deleteApp(tempApp);
+                    throw authError; // Rethrow to be caught by the outer catch
+                }
             }
             
             await deleteApp(tempApp);
@@ -447,9 +450,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         console.log("Membro salvo no Firestore com ID:", docRef.id);
         return true;
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro fatal ao adicionar membro da equipe:", error);
-        return false;
+        throw error; // Rethrow so the UI can catch it
     }
   };
 

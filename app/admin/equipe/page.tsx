@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { useApp, TeamMember } from '@/app/context/AppContext';
 import { Plus, Search, Edit2, Trash2, X, User, Shield, UserCog, Mail, Phone, Lock, Percent } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '@/app/context/ToastContext';
 
 export default function TeamPage() {
   const { team, addTeamMember, updateTeamMember, deleteTeamMember } = useApp();
+  const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -32,27 +34,34 @@ export default function TeamPage() {
     // Parse commission
     const commission = formData.role === 'barber' ? parseFloat(formData.commissionRate) || 0 : undefined;
 
-    if (editingId) {
-      await updateTeamMember(editingId, {
-          name: formData.name,
-          role: formData.role as any, 
-          email: formData.email,
-          phone: formData.phone,
-          commissionRate: commission
-      });
-    } else {
-      await addTeamMember({
-          name: formData.name,
-          role: formData.role as any,
-          email: formData.email,
-          phone: formData.phone,
-          avatar: '',
-          commissionRate: commission
-      }, formData.password);
+    try {
+        if (editingId) {
+          const success = await updateTeamMember(editingId, {
+              name: formData.name,
+              role: formData.role as any, 
+              email: formData.email,
+              phone: formData.phone,
+              commissionRate: commission
+          });
+          if (success) showToast('Membro atualizado com sucesso!', 'success');
+        } else {
+          const success = await addTeamMember({
+              name: formData.name,
+              role: formData.role as any,
+              email: formData.email,
+              phone: formData.phone,
+              avatar: '',
+              commissionRate: commission
+          }, formData.password);
+          if (success) showToast('Membro cadastrado com sucesso!', 'success');
+        }
+        
+        setShowModal(false);
+        resetForm();
+    } catch (error: any) {
+        console.error("Erro ao salvar membro:", error);
+        showToast(`Erro ao salvar: ${error.message || 'Verifique os dados'}`, 'error');
     }
-    
-    setShowModal(false);
-    resetForm();
   };
 
   const resetForm = () => {
