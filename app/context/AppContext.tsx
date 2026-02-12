@@ -132,7 +132,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       snapshot.forEach((doc) => {
         svcs.push({ id: doc.id, ...doc.data() } as Service);
       });
+      console.log("Serviços carregados:", svcs.length);
       setServices(svcs);
+    }, (error: any) => {
+      console.error("Erro ao carregar serviços:", error);
     });
     return () => unsubscribe();
   }, []);
@@ -145,7 +148,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       snapshot.forEach((doc) => {
         appts.push({ id: doc.id, ...doc.data() } as Appointment);
       });
+      console.log("Agendamentos carregados:", appts.length);
       setAppointments(appts);
+    }, (error: any) => {
+      console.error("Erro ao carregar agendamentos:", error);
     });
     return () => unsubscribe();
   }, []);
@@ -197,7 +203,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         snapshot.forEach((doc) => {
             members.push({ id: doc.id, ...doc.data() } as TeamMember);
         });
+        console.log("Equipe carregada:", members.length);
         setTeam(members);
+    }, (error: any) => {
+        console.error("Erro ao carregar equipe:", error);
     });
     return () => unsubscribe();
   }, []);

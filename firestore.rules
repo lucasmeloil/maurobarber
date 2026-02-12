@@ -12,14 +12,32 @@ service cloud.firestore {
 
     // Regras para Agendamentos (appointments)
     // Qualquer pessoa pode criar um agendamento (cliente público)
-    // Apenas usuários autenticados (admin) podem ler lista completa, atualizar ou deletar
+    // Qualquer pessoa pode ler para verificar disponibilidade
     match /appointments/{document=**} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow read: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    // Regras para Equipe (team)
+    // Qualquer pessoa pode ver a equipe (para escolher barbeiro)
+    match /team/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Regras para Produtos (products)
+    match /products/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Regras para Despesas (expenses)
+    match /expenses/{document=**} {
+      allow read, write: if request.auth != null;
     }
 
     // Regras para Receitas Extras (customRevenues)
-    // Apenas usuários autenticados (admin) podem acessar
     match /customRevenues/{document=**} {
       allow read, write: if request.auth != null;
     }
