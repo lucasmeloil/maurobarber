@@ -203,10 +203,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         snapshot.forEach((doc) => {
             members.push({ id: doc.id, ...doc.data() } as TeamMember);
         });
-        console.log("Equipe carregada:", members.length);
+        console.log("Equipe carregada do Firebase:", members.length, members);
         setTeam(members);
     }, (error: any) => {
-        console.error("Erro ao carregar equipe:", error);
+        console.error("Erro CRÍTICO ao carregar equipe:", error);
     });
     return () => unsubscribe();
   }, []);
@@ -408,43 +408,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addTeamMember = async (member: Omit<TeamMember, 'id'>, password?: string): Promise<boolean> => {
+    console.log("Iniciando cadastro de membro:", member.name, "Função:", member.role);
     try {
         let authUid = '';
 
-        // If password is provided, try to create an Auth User
-        if (password && member.email) {
+        // If password is provided and it's a staff member, try to create an Auth User
+        if (password && member.email && (member.role === 'admin' || member.role === 'barber')) {
+            console.log("Tentando criar usuário no Firebase Auth...");
             // Initialize a secondary app to create user without logging out the admin
-            const tempApp = initializeApp(firebaseConfig, "tempAppForCreation");
+            const tempApp = initializeApp(firebaseConfig, "tempAppForCreation_" + Date.now());
             const tempAuth = getAuth(tempApp);
             
             try {
                 const userCredential = await createUserWithEmailAndPassword(tempAuth, member.email, password);
                 authUid = userCredential.user.uid;
                 
-                // Optional: Update display name immediately
                 await updateProfile(userCredential.user, {
                    displayName: member.name
                 });
                 
-                console.log("Auth user created with UID:", authUid);
-            } catch (authError) {
-                console.error("Error creating auth user:", authError);
-                // Clean up temp app even if error
+                console.log("Usuário Auth criado com sucesso. UID:", authUid);
+            } catch (authError: any) {
+                console.error("Erro ao criar usuário no Auth:", authError);
+                // Continue saving to firestore even if auth fails, or we can handle it
+                // and return false if desired. Let's return false to be safe if auth was requested.
                 await deleteApp(tempApp);
-                return false; // Fail if auth fails
+                return false; 
             }
             
-            // Cleanup temp app
             await deleteApp(tempApp);
         }
 
-        await addDoc(collection(db, "team"), {
+        console.log("Salvando membro no Firestore...");
+        const docRef = await addDoc(collection(db, "team"), {
             ...member,
-            uid: authUid // Link to auth user if created
+            uid: authUid,
+            createdAt: new Date().toISOString()
         });
+        console.log("Membro salvo no Firestore com ID:", docRef.id);
         return true;
     } catch (error) {
-        console.error("Error adding team member:", error);
+        console.error("Erro fatal ao adicionar membro da equipe:", error);
         return false;
     }
   };

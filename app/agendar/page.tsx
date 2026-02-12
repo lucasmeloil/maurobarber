@@ -15,6 +15,7 @@ function ScheduleForm() {
   const [selectedBarber, setSelectedBarber] = useState<string>('');
   
   const barbers = team.filter(m => m.role === 'barber');
+  console.log("Barbeiros carregados na página de agendamento:", barbers);
   
   useEffect(() => {
     if(preSelectedBarberId) {
