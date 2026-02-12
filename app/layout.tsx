@@ -15,10 +15,20 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Mauro Barber",
-  description: "Estilo e precisão. Sua barbearia de confiança.",
+  title: "Mauro Barber | Estilo e Precisão",
+  description: "Referência em barbearia clássica e moderna. Agende seu horário e viva essa experiência.",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
+  themeColor: "#000000",
   icons: {
     icon: "/favicon-new.png", 
+  },
+  openGraph: {
+    title: "Mauro Barber",
+    description: "Sua barbearia de confiança agora com agendamento online.",
+    url: "https://maurobarber.com.br",
+    siteName: "Mauro Barber",
+    locale: "pt_BR",
+    type: "website",
   }
 };
 
