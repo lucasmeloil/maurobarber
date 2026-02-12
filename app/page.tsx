@@ -10,7 +10,7 @@ import { useApp } from './context/AppContext';
 
 
 export default function Home() {
-  const { team } = useApp();
+  const { team, services } = useApp();
   const barbers = team.filter(m => m.role === 'barber');
   const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0);
 
@@ -88,6 +88,50 @@ export default function Home() {
                     ))}
                 </ul>
             </div>
+        </div>
+      </section>
+
+      {/* Services Section - Dynamic from DB */}
+      <section className="py-24 bg-black border-t border-white/5">
+        <div className="container mx-auto px-4">
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="text-center mb-16"
+            >
+                <h2 className="text-3xl md:text-5xl font-bold font-heading text-white mb-4">Serviços Exclusivos</h2>
+                <p className="text-gray-400 max-w-2xl mx-auto">Excelência em cada detalhe, do clássico ao moderno.</p>
+            </motion.div>
+
+            {services.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {services.map((service, i) => (
+                        <motion.div
+                            key={service.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: i * 0.1 }}
+                            className="bg-[#111] border border-white/5 p-8 rounded-2xl hover:border-orange-500/30 transition-all group"
+                        >
+                            <div className="flex justify-between items-start mb-4">
+                                <h3 className="text-2xl font-bold text-white group-hover:text-orange-500 transition-colors">{service.name}</h3>
+                                <span className="text-xl font-bold text-orange-500">R$ {service.price.toFixed(2)}</span>
+                            </div>
+                            <p className="text-gray-400 mb-6">{service.duration}</p>
+                            <Link href="/agendar" className="inline-flex items-center gap-2 text-white font-bold hover:gap-4 transition-all">
+                                Agendar agora <span className="text-orange-500">→</span>
+                            </Link>
+                        </motion.div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-12 bg-zinc-900/30 rounded-3xl border border-dashed border-white/10">
+                    <p className="text-gray-500 italic">Nenhum serviço disponível no momento.</p>
+                    <Link href="/servicos" className="text-blue-400 text-sm mt-2 inline-block">Ver todos os serviços</Link>
+                </div>
+            )}
         </div>
       </section>
 
@@ -174,9 +218,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Team/Barbers Section */}
-      {barbers.length > 0 && (
-        <section className="py-24 bg-black">
+      {/* Team/Barbers Section - Dynamic from DB */}
+      <section className="py-24 bg-[#050505] border-t border-white/5">
             <div className="container mx-auto px-4">
                 <motion.div 
                     initial={{ opacity: 0, y: 20 }}
@@ -188,37 +231,42 @@ export default function Home() {
                     <p className="text-gray-400 max-w-2xl mx-auto">Escolha seu barbeiro de preferência e agende seu horário.</p>
                 </motion.div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-center">
-                    {barbers.map((barber, i) => (
-                        <motion.div
-                            key={barber.id}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: i * 0.1 }}
-                        >
-                            <Link href={`/agendar?barberId=${barber.id}`} className="block group">
-                                <div className="bg-[#111] p-6 rounded-2xl border border-white/5 hover:border-white/20 transition-all text-center group-hover:bg-[#1a1a1a]">
-                                    <div className="w-24 h-24 mx-auto bg-zinc-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                                        {barber.avatar ? (
-                                            <img src={barber.avatar} alt={barber.name} className="w-full h-full rounded-full object-cover" />
-                                        ) : (
-                                            <User size={40} className="text-gray-400" />
-                                        )}
+                {barbers.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-center">
+                        {barbers.map((barber, i) => (
+                            <motion.div
+                                key={barber.id}
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                whileInView={{ opacity: 1, scale: 1 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: i * 0.1 }}
+                            >
+                                <Link href={`/agendar?barberId=${barber.id}`} className="block group">
+                                    <div className="bg-[#111] p-6 rounded-2xl border border-white/5 hover:border-orange-500/30 transition-all text-center group-hover:bg-[#1a1a1a]">
+                                        <div className="w-24 h-24 mx-auto bg-zinc-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform overflow-hidden">
+                                            {barber.avatar ? (
+                                                <img src={barber.avatar} alt={barber.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <User size={40} className="text-gray-400" />
+                                            )}
+                                        </div>
+                                        <h3 className="text-xl font-bold text-white mb-1 group-hover:text-orange-500 transition-colors uppercase tracking-wider">{barber.name}</h3>
+                                        <p className="text-xs text-orange-500 mb-4 font-bold tracking-[0.2em] uppercase">Mestre Barbeiro</p>
+                                        <span className="inline-block px-6 py-2 bg-white text-black text-xs font-black rounded-full group-hover:bg-orange-500 group-hover:text-white transition-all uppercase tracking-widest">
+                                            Reservar
+                                        </span>
                                     </div>
-                                    <h3 className="text-xl font-bold text-white mb-1 group-hover:text-blue-400 transition-colors">{barber.name}</h3>
-                                    <p className="text-sm text-gray-400 mb-4">{barber.role === 'barber' ? 'Barbeiro' : 'Profissional'}</p>
-                                    <span className="inline-block px-4 py-2 bg-white text-black text-sm font-bold rounded-full group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                                        Agendar
-                                    </span>
-                                </div>
-                            </Link>
-                        </motion.div>
-                    ))}
-                </div>
+                                </Link>
+                            </motion.div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-12 bg-zinc-900/30 rounded-3xl border border-dashed border-white/10">
+                         <p className="text-gray-500 italic">Nenhum profissional disponível no momento.</p>
+                    </div>
+                )}
             </div>
         </section>
-      )}
 
       {/* Testimonials Section */}
       <section className="py-24 bg-black border-y border-white/5">
