@@ -165,7 +165,7 @@ function ScheduleForm() {
                 )}
             </div>
 
-            {barbers.length > 0 && (
+            {barbers.length > 0 ? (
                 <div>
                     <label className="block text-sm text-gray-400 mb-4 flex items-center gap-2">
                         <User size={16} /> Profissional
@@ -175,15 +175,19 @@ function ScheduleForm() {
                             <div 
                                 key={b.id}
                                 onClick={() => setSelectedBarber(b.id)}
-                                className={`cursor-pointer border rounded-xl p-3 flex flex-col items-center gap-2 transition-all ${selectedBarber === b.id ? 'bg-white text-black border-white' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}
+                                className={`cursor-pointer border rounded-2xl p-4 flex flex-col items-center gap-3 transition-all transform ${selectedBarber === b.id ? 'bg-white text-black border-white scale-105 shadow-[0_0_20px_rgba(255,255,255,0.2)]' : 'bg-black border-gray-800 text-gray-500 hover:border-gray-600'}`}
                             >
-                                <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-800 flex items-center justify-center font-bold">
+                                <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg ${selectedBarber === b.id ? 'bg-black text-white' : 'bg-gray-800 text-gray-400'}`}>
                                     {b.name.substring(0, 2).toUpperCase()}
                                 </div>
-                                <span className="font-medium text-sm text-center">{b.name}</span>
+                                <span className="font-bold text-sm text-center">{b.name}</span>
                             </div>
                         ))}
                     </div>
+                </div>
+            ) : (
+                <div className="bg-yellow-900/10 border border-yellow-900/30 p-4 rounded-xl text-center">
+                    <p className="text-yellow-500 text-sm">Nenhum barbeiro disponível no momento. Verifique o cadastro no Admin.</p>
                 </div>
             )}
 
@@ -194,6 +198,7 @@ function ScheduleForm() {
                 <input 
                     type="date" 
                     name="data"
+                    min={new Date().toISOString().split('T')[0]}
                     value={formData.data}
                     onChange={handleChange}
                     className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors"
@@ -220,12 +225,12 @@ function ScheduleForm() {
                                     disabled={!available}
                                     onClick={() => setFormData({...formData, hora: time})}
                                     className={`
-                                        py-2 px-1 rounded-lg text-sm font-bold transition-all border
+                                        py-3 px-1 rounded-xl text-sm font-black transition-all border
                                         ${!available 
-                                            ? 'bg-red-900/10 border-red-900/30 text-red-500/50 cursor-not-allowed decoration-red-900 line-through' 
+                                            ? 'bg-red-500/10 border-red-500/40 text-red-500 cursor-not-allowed line-through opacity-40' 
                                             : formData.hora === time 
-                                                ? 'bg-white text-black border-white scale-105 shadow-lg' 
-                                                : 'bg-black border-gray-800 text-green-400 hover:border-green-500 hover:text-green-300'
+                                                ? 'bg-white text-black border-white scale-105 shadow-xl' 
+                                                : 'bg-black border-gray-800 text-green-500 hover:border-green-500 hover:scale-[1.05]'
                                         }
                                     `}
                                 >
@@ -234,15 +239,15 @@ function ScheduleForm() {
                             );
                         })}
                     </div>
-                    {!formData.hora && (
-                        <p className="text-yellow-500/80 text-xs mt-3 text-center">Selecione um horário disponível acima.</p>
+                    {formData.hora && (
+                        <p className="text-green-500 text-xs mt-3 text-center font-bold">Horário {formData.hora} selecionado!</p>
                     )}
                 </div>
             ) : (
-                <div className="bg-white/5 rounded-xl p-6 text-center text-gray-400 text-sm">
-                    {!selectedServices.length ? "Selecione os serviços primeiro." : 
-                     !selectedBarber ? "Selecione um profissional." : 
-                     "Selecione uma data para ver os horários."}
+                <div className="bg-white/5 rounded-2xl p-8 text-center text-gray-400 text-sm border border-dashed border-white/10">
+                    {!selectedServices.length ? "Selecione os serviços para continuar." : 
+                     !selectedBarber ? "Quase lá! Escolha o barbeiro." : 
+                     "Para finalizar, escolha a data desejada."}
                 </div>
             )}
 
