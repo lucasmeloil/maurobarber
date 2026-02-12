@@ -116,10 +116,10 @@ export default function Home() {
                             className="bg-[#111] border border-white/5 p-8 rounded-2xl hover:border-orange-500/30 transition-all group"
                         >
                             <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-2xl font-bold text-white group-hover:text-orange-500 transition-colors">{service.name}</h3>
-                                <span className="text-xl font-bold text-orange-500">R$ {service.price.toFixed(2)}</span>
+                                <h3 className="text-2xl font-bold text-white group-hover:text-orange-500 transition-colors">{service.name || 'Serviço'}</h3>
+                                <span className="text-xl font-bold text-orange-500">R$ {(Number(service.price) || 0).toFixed(2)}</span>
                             </div>
-                            <p className="text-gray-400 mb-6">{service.duration}</p>
+                            <p className="text-gray-400 mb-6">{service.duration || '30 min'}</p>
                             <Link href="/agendar" className="inline-flex items-center gap-2 text-white font-bold hover:gap-4 transition-all">
                                 Agendar agora <span className="text-orange-500">→</span>
                             </Link>

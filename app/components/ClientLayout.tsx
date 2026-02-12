@@ -16,26 +16,16 @@ export default function ClientLayout({
   const pathname = usePathname();
   const isAdmin = pathname.startsWith('/admin');
 
-  if (isAdmin) {
-    return (
-        <AppProvider>
-            <ToastProvider>
-                {children}
-            </ToastProvider>
-        </AppProvider>
-    );
-  }
-
   return (
     <AppProvider>
         <ToastProvider>
-            <Navbar />
-            <main className="pt-0 md:pt-[80px] pb-[80px] md:pb-0 min-h-screen">
+            {!isAdmin && <Navbar />}
+            <main className={!isAdmin ? "pt-0 md:pt-[80px] pb-[80px] md:pb-0 min-h-screen" : ""}>
                 {children}
             </main>
-            <Footer />
-            <WhatsAppFloatingButton />
-            <MobileMenu />
+            {!isAdmin && <Footer />}
+            {!isAdmin && <WhatsAppFloatingButton />}
+            {!isAdmin && <MobileMenu />}
         </ToastProvider>
     </AppProvider>
   );

@@ -109,6 +109,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
+  // Initialize Connection Log
+  useEffect(() => {
+    console.log("🔥 AppContext: Conectando ao projeto Firebase:", firebaseConfig.projectId);
+  }, []);
+
   // Auth State Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -132,10 +137,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       snapshot.forEach((doc) => {
         svcs.push({ id: doc.id, ...doc.data() } as Service);
       });
-      console.log("Serviços carregados:", svcs.length);
+      console.log(`✅ [Services] Carregados: ${svcs.length}`);
       setServices(svcs);
     }, (error: any) => {
-      console.error("Erro ao carregar serviços:", error);
+      console.error("❌ [Services] ERRO:", error);
+      if (error.code === 'permission-denied') {
+        console.warn("DICA: Suas regras do Firestore estão bloqueando a leitura pública!");
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -203,10 +211,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         snapshot.forEach((doc) => {
             members.push({ id: doc.id, ...doc.data() } as TeamMember);
         });
-        console.log("Equipe carregada do Firebase:", members.length, members);
+        console.log(`✅ [Team] Carregados: ${members.length}`, members);
         setTeam(members);
     }, (error: any) => {
-        console.error("Erro CRÍTICO ao carregar equipe:", error);
+        console.error("❌ [Team] ERRO:", error);
     });
     return () => unsubscribe();
   }, []);
