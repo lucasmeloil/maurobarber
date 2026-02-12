@@ -2,8 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db, auth, firebaseConfig } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, getDocs } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, getDocs, onSnapshotsInSync } from "firebase/firestore";
 import { onAuthStateChanged, getAuth, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { useToast } from './ToastContext';
 import { initializeApp, deleteApp } from "firebase/app";
 
 export type Service = {
@@ -99,7 +100,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { showToast } = useToast();
   const [services, setServices] = useState<Service[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [customRevenues, setCustomRevenues] = useState<CustomRevenue[]>([]);
@@ -141,7 +143,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }, (error: any) => {
       console.error("❌ [Services] ERRO:", error);
       if (error.code === 'permission-denied') {
-        console.warn("DICA: Suas regras do Firestore estão bloqueando a leitura pública!");
+        showToast("Erro de Permissão: Verifique suas regras do Firestore.", "error");
+      } else {
+        showToast("Erro ao conectar com o banco de dados.", "error");
       }
     });
     return () => unsubscribe();
@@ -214,6 +218,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTeam(members);
     }, (error: any) => {
         console.error("❌ [Team] ERRO:", error);
+        showToast("Erro ao carregar profissionais.", "error");
     });
     return () => unsubscribe();
   }, []);

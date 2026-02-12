@@ -17,16 +17,22 @@ export const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firestore with Persistence for better mobile/all-browser experience
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-});
+// Use standard Firestore for maximum browser compatibility
+// Persistence is handled automatically by the newer SDKs in many cases, 
+// or we can enable it specifically if needed.
+const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
 
 // Initialize Analytics safely (only on client side)
-const analytics = typeof window !== "undefined" ? isSupported().then(yes => yes ? getAnalytics(app) : null) : null;
+let analytics: any = null;
+if (typeof window !== "undefined") {
+    isSupported().then(yes => {
+        if (yes) {
+            analytics = getAnalytics(app);
+            console.log("📊 Analytics Inicializado");
+        }
+    });
+}
 
 export { app, db, auth, storage, analytics };
