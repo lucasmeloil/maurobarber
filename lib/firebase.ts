@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getFirestore, initializeFirestore, memoryLocalCache } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
@@ -17,10 +17,11 @@ export const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Use standard Firestore for maximum browser compatibility
-// Persistence is handled automatically by the newer SDKs in many cases, 
-// or we can enable it specifically if needed.
-const db = getFirestore(app);
+// Use initializeFirestore with force long polling for maximum compatibility (Brave, Firefox, etc.)
+const db = initializeFirestore(app, {
+    localCache: memoryLocalCache(), // Evita erro de permissão de escrita em alguns navegadores mobile
+    experimentalForceLongPolling: true
+});
 const auth = getAuth(app);
 const storage = getStorage(app);
 
