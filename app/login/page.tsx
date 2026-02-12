@@ -14,7 +14,6 @@ export default function LoginPage() {
     e.preventDefault();
     try {
         await signInWithEmailAndPassword(auth, email, password);
-        localStorage.setItem('isAdmin', 'true'); 
         router.push('/admin');
     } catch (error) {
         alert('Erro ao fazer login. Verifique suas credenciais.');

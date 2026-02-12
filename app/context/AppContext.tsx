@@ -125,7 +125,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await auth.signOut();
-    localStorage.removeItem('isAdmin');
     setCurrentUser(null);
   };
 
