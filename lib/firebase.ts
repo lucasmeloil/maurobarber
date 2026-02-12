@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, initializeFirestore, memoryLocalCache } from "firebase/firestore";
+import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
@@ -17,10 +17,10 @@ export const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Use initializeFirestore with force long polling for maximum compatibility (Brave, Firefox, etc.)
+// Configuração robusta para Safari (iPhone), Brave e outros navegadores
+// Removemos experimentalForceLongPolling pois ele trava o carregamento no Safari iOS
 const db = initializeFirestore(app, {
-    localCache: memoryLocalCache(), // Evita erro de permissão de escrita em alguns navegadores mobile
-    experimentalForceLongPolling: true
+    localCache: memoryLocalCache() // Crucial para Safari em modo privado e conexões instáveis
 });
 const auth = getAuth(app);
 const storage = getStorage(app);
