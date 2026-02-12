@@ -40,7 +40,7 @@ export default function AdminLayout({
                 const permission = await Notification.requestPermission();
                 if (permission === 'granted') {
                     const token = await getToken(messaging, { 
-                        vapidKey: 'YOUR_VAPID_KEY_HERE' // Você precisará gerar isso no Console do Firebase > Cloud Messaging
+                        vapidKey: 'BlaykffShaRHseNc_3wG4IVr4Z4TGD3qoqEKbjTCXsqsxfFr_tnNtq8lvTRMeAwveCljP1d0v5Qced1b3D16QSE'
                     });
                     console.log('FCM Token:', token);
                     // Aqui você salvaria esse token no Firestore na coleção 'admin_tokens' para usar depois
