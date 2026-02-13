@@ -14,7 +14,7 @@ export default function ContactPage() {
              <p className="text-gray-400 group-hover:text-white transition-colors">(79) 9991-4079</p>
           </Link>
           
-          <Link href="https://instagram.com/maurobarbershop2 className="flex flex-col items-center text-center p-8 bg-[#111] border border-white/5 rounded-2xl hover:bg-[#1a1a1a] transition-all group hover:-translate-y-2 shadow-lg">
+          <Link href="https://instagram.com/maurobarbeshop2" className="flex flex-col items-center text-center p-8 bg-[#111] border border-white/5 rounded-2xl hover:bg-[#1a1a1a] transition-all group hover:-translate-y-2 shadow-lg">
              <Instagram size={48} className="mb-6 text-white group-hover:scale-110 transition-transform group-hover:text-[#E1306C]"/>
              <h3 className="text-xl font-bold mb-2 text-white">Instagram</h3>
              <p className="text-gray-400 group-hover:text-white transition-colors">@maurobarbershop2</p>
