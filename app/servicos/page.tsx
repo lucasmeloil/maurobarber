@@ -8,7 +8,7 @@ export default function ServicesPage() {
 
   return (
     <>
-      <PageBanner title="Nossos Serviços" subtitle="Exceencia em cada detalhe" />
+      <PageBanner title="Nossos Serviços" subtitle="Excelência em cada detalhe" />
       <div className="container mx-auto px-4 py-16">
         {services.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
