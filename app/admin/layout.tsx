@@ -51,7 +51,7 @@ export default function AdminLayout({
                     // Custom toast ou alerta visual aqui
                     new Notification(payload.notification?.title || 'Novo Agendamento', {
                         body: payload.notification?.body,
-                        icon: '/img/logo.png'
+                        icon: '/img/favicon-new.png'
                     });
                 });
             }

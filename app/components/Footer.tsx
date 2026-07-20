@@ -8,7 +8,7 @@ export default function Footer() {
       <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
         <div>
           <Image 
-            src="/img/logo.png" 
+            src="/img/favicon-new.png" 
             width={160} 
             height={60} 
             alt="Mauro Barber Logo" 

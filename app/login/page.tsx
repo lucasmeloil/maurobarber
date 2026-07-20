@@ -26,7 +26,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white border border-gray-200 p-8 rounded-2xl shadow-xl">
         <div className="flex justify-center mb-6">
             <Image 
-                src="/img/logo.png" 
+                src="/img/favicon-new.png" 
                 width={160} 
                 height={50} 
                 alt="Mauro Barber Logo" 

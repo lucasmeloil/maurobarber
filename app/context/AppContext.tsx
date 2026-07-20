@@ -169,6 +169,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Custom Revenues Listener
   useEffect(() => {
+    if (!currentUser) {
+      setCustomRevenues([]);
+      return;
+    }
     const q = query(collection(db, "customRevenues"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const revs: CustomRevenue[] = [];
@@ -176,12 +180,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             revs.push({ id: doc.id, ...doc.data() } as CustomRevenue);
         });
         setCustomRevenues(revs);
+    }, (error) => {
+        console.error("Erro ao carregar receitas extras (customRevenues):", error);
     });
     return () => unsubscribe();
-  }, []);
+  }, [currentUser]);
 
   // Expenses Listener
   useEffect(() => {
+    if (!currentUser) {
+      setExpenses([]);
+      return;
+    }
     const q = query(collection(db, "expenses"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const exps: Expense[] = [];
@@ -189,9 +199,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             exps.push({ id: doc.id, ...doc.data() } as Expense);
         });
         setExpenses(exps);
+    }, (error) => {
+        console.error("Erro ao carregar despesas (expenses):", error);
     });
     return () => unsubscribe();
-  }, []);
+  }, [currentUser]);
 
   // Products Listener
   useEffect(() => {
@@ -202,6 +214,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             prods.push({ id: doc.id, ...doc.data() } as Product);
         });
         setProducts(prods);
+    }, (error) => {
+        console.error("Erro ao carregar produtos (products):", error);
     });
     return () => unsubscribe();
   }, []);

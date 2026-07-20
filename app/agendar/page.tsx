@@ -95,10 +95,37 @@ function ScheduleForm() {
       return;
     }
     
-    showToast('Agendamento enviado com sucesso!', 'success');
+    // Format date to DD/MM/YYYY for the WhatsApp message
+    let formattedDate = formData.data;
+    if (formData.data) {
+        const parts = formData.data.split('-');
+        if (parts.length === 3) {
+            formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+    }
+
+    // Construct WhatsApp message with appointment details
+    const message = `Olá! Gostaria de confirmar meu agendamento:\n\n` +
+      `*Cliente:* ${formData.nome}\n` +
+      `*Telefone:* ${formData.telefone}\n` +
+      `*Serviço(s):* ${serviceName}\n` +
+      `*Profissional:* ${barber ? barber.name : 'Qualquer Profissional'}\n` +
+      `*Data:* ${formattedDate}\n` +
+      `*Horário:* ${formData.hora}\n` +
+      `*Valor:* R$ ${totalPrice.toFixed(2)}\n` +
+      (formData.observacoes.trim() ? `*Observações:* ${formData.observacoes.trim()}` : '');
+
+    const whatsappUrl = `https://wa.me/557999914079?text=${encodeURIComponent(message)}`;
+
+    showToast('Agendamento enviado com sucesso! Redirecionando para o WhatsApp...', 'success');
+    
+    // Clear form state
     setFormData({ nome: '', telefone: '', data: '', hora: '', observacoes: '' });
     setSelectedServices([]);
     setSelectedBarber('');
+
+    // Redirect to WhatsApp
+    window.location.href = whatsappUrl;
   };
 
   // Generate time slots from 09:00 to 20:00
