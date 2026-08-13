@@ -7,303 +7,383 @@ import PageBanner from '../components/PageBanner';
 import { useSearchParams } from 'next/navigation';
 
 function ScheduleForm() {
-  const { services, addAppointment, team, isSlotAvailable } = useApp();
-  const searchParams = useSearchParams();
-  const preSelectedBarberId = searchParams.get('barberId');
+    const { services, addAppointment, team, isSlotAvailable } = useApp();
+    const searchParams = useSearchParams();
+    const preSelectedBarberId = searchParams.get('barberId');
 
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [selectedBarber, setSelectedBarber] = useState<string>('');
-  
-  const barbers = team.filter(m => m.role === 'barber');
-  console.log("Barbeiros carregados na página de agendamento:", barbers);
-  
-  useEffect(() => {
-    if(preSelectedBarberId) {
-        setSelectedBarber(preSelectedBarberId);
-    }
-  }, [preSelectedBarberId]);
+    const [selectedServices, setSelectedServices] = useState<string[]>([]);
+    const [selectedBarber, setSelectedBarber] = useState<string>('');
 
-  const [formData, setFormData] = useState({
-    nome: '',
-    telefone: '',
-    data: '',
-    hora: '',
-    observacoes: ''
-  });
+    const barbers = team.filter(m => m.role === 'barber');
+    console.log("Barbeiros carregados na página de agendamento:", barbers);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+    useEffect(() => {
+        if (preSelectedBarberId) {
+            setSelectedBarber(preSelectedBarberId);
+        }
+    }, [preSelectedBarberId]);
 
-  const toggleService = (id: string) => {
-    setSelectedServices(prev => 
-        prev.includes(id) 
-        ? prev.filter(sId => sId !== id)
-        : [...prev, id]
-    );
-  };
+    const getTodayString = () => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
 
-  const totalPrice = services
-    .filter(s => selectedServices.includes(s.id))
-    .reduce((acc, curr) => acc + Number(curr.price), 0);
+    const getNextDays = () => {
+        const days = [];
+        const today = new Date();
+        const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-  const { showToast } = useToast();
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(today);
+            d.setDate(today.getDate() + i);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (selectedServices.length === 0) {
-        showToast('Selecione pelo menos um serviço!', 'error');
-        return;
-    }
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const dayNum = String(d.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${dayNum}`;
 
-    if (!selectedBarber && barbers.length > 0) {
-        showToast('Selecione um profissional!', 'error');
-        return;
-    }
-    
-    if (!formData.hora) {
-        showToast('Selecione um horário!', 'error');
-        return;
-    }
+            let label = '';
+            if (i === 0) label = 'Hoje';
+            else if (i === 1) label = 'Amanhã';
+            else label = `${daysOfWeek[d.getDay()]}, ${dayNum}/${month}`;
 
-    const selectedServiceObjects = services.filter(s => selectedServices.includes(s.id));
-    const serviceName = selectedServiceObjects.map(s => s.name).join(' + ');
-    const serviceId = selectedServices.join(',');
-    const barber = team.find(b => b.id === selectedBarber);
+            days.push({
+                dateStr,
+                label,
+                dayOfWeek: daysOfWeek[d.getDay()],
+                dayNum,
+                isToday: i === 0,
+            });
+        }
+        return days;
+    };
 
-    // Format phone number to ensure +55 prefix for Brazil
-    let formattedPhone = formData.telefone.replace(/\D/g, '');
-    if (formattedPhone.length >= 10 && formattedPhone.length <= 11) {
-        formattedPhone = `55${formattedPhone}`;
-    }
-
-    const success = await addAppointment({
-        clientName: formData.nome,
-        phone: formattedPhone,
-        serviceId: serviceId,
-        serviceName: serviceName,
-        barberId: selectedBarber || undefined,
-        barberName: barber ? barber.name : 'Qualquer Profissional',
-        price: totalPrice,
-        date: formData.data,
-        time: formData.hora
+    const [formData, setFormData] = useState({
+        nome: '',
+        telefone: '',
+        data: getTodayString(),
+        hora: '',
+        observacoes: ''
     });
 
-    if (!success) {
-      showToast('Horário indisponível! Por favor, escolha outro horário.', 'error');
-      return;
-    }
-    
-    // Format date to DD/MM/YYYY for the WhatsApp message
-    let formattedDate = formData.data;
-    if (formData.data) {
-        const parts = formData.data.split('-');
-        if (parts.length === 3) {
-            formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const toggleService = (id: string) => {
+        setSelectedServices(prev =>
+            prev.includes(id)
+                ? prev.filter(sId => sId !== id)
+                : [...prev, id]
+        );
+    };
+
+    const totalPrice = services
+        .filter(s => selectedServices.includes(s.id))
+        .reduce((acc, curr) => acc + Number(curr.price), 0);
+
+    const { showToast } = useToast();
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (selectedServices.length === 0) {
+            showToast('Selecione pelo menos um serviço!', 'error');
+            return;
         }
-    }
 
-    // Construct WhatsApp message with appointment details
-    const message = `Olá! Gostaria de confirmar meu agendamento:\n\n` +
-      `*Cliente:* ${formData.nome}\n` +
-      `*Telefone:* ${formData.telefone}\n` +
-      `*Serviço(s):* ${serviceName}\n` +
-      `*Profissional:* ${barber ? barber.name : 'Qualquer Profissional'}\n` +
-      `*Data:* ${formattedDate}\n` +
-      `*Horário:* ${formData.hora}\n` +
-      `*Valor:* R$ ${totalPrice.toFixed(2)}\n` +
-      (formData.observacoes.trim() ? `*Observações:* ${formData.observacoes.trim()}` : '');
+        if (!selectedBarber && barbers.length > 0) {
+            showToast('Selecione um profissional!', 'error');
+            return;
+        }
 
-    const whatsappUrl = `https://wa.me/557999914079?text=${encodeURIComponent(message)}`;
+        if (!formData.hora) {
+            showToast('Selecione um horário!', 'error');
+            return;
+        }
 
-    showToast('Agendamento enviado com sucesso! Redirecionando para o WhatsApp...', 'success');
-    
-    // Clear form state
-    setFormData({ nome: '', telefone: '', data: '', hora: '', observacoes: '' });
-    setSelectedServices([]);
-    setSelectedBarber('');
+        const selectedServiceObjects = services.filter(s => selectedServices.includes(s.id));
+        const serviceName = selectedServiceObjects.map(s => s.name).join(' + ');
+        const serviceId = selectedServices.join(',');
+        const barber = team.find(b => b.id === selectedBarber);
 
-    // Redirect to WhatsApp
-    window.location.href = whatsappUrl;
-  };
+        // Format phone number to ensure +55 prefix for Brazil
+        let formattedPhone = formData.telefone.replace(/\D/g, '');
+        if (formattedPhone.length >= 10 && formattedPhone.length <= 11) {
+            formattedPhone = `55${formattedPhone}`;
+        }
 
-  // Generate time slots from 09:00 to 20:00
-  const timeSlots = [];
-  for (let h = 9; h < 20; h++) {
-      timeSlots.push(`${h.toString().padStart(2, '0')}:00`);
-      timeSlots.push(`${h.toString().padStart(2, '0')}:30`);
-  }
+        const success = await addAppointment({
+            clientName: formData.nome,
+            phone: formattedPhone,
+            serviceId: serviceId,
+            serviceName: serviceName,
+            barberId: selectedBarber || undefined,
+            barberName: barber ? barber.name : 'Qualquer Profissional',
+            price: totalPrice,
+            date: formData.data,
+            time: formData.hora
+        });
 
-  return (
-      <div className="max-w-2xl mx-auto bg-[#111] border border-white/10 p-8 rounded-2xl shadow-2xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-                <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
-                    <User size={16} /> Nome Completo
-                </label>
-                <input 
-                    type="text" 
-                    name="nome"
-                    value={formData.nome}
-                    onChange={handleChange}
-                    className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors"
-                    required
-                />
-            </div>
+        if (!success) {
+            showToast('Horário indisponível! Por favor, escolha outro horário.', 'error');
+            return;
+        }
 
-            <div>
-                <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
-                    <Phone size={16} /> Telefone
-                </label>
-                <input 
-                    type="tel" 
-                    name="telefone"
-                    value={formData.telefone}
-                    onChange={handleChange}
-                    className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors"
-                    required
-                />
-            </div>
+        // Format date to DD/MM/YYYY for the WhatsApp message
+        let formattedDate = formData.data;
+        if (formData.data) {
+            const parts = formData.data.split('-');
+            if (parts.length === 3) {
+                formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+        }
 
-            <div>
-                <label className="block text-sm text-gray-400 mb-4 flex items-center gap-2">
-                    <Scissors size={16} /> Serviços (Selecione um ou mais)
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                    {services.map(s => {
-                        const isSelected = selectedServices.includes(s.id);
-                        return (
-                            <div 
-                                key={s.id}
-                                onClick={() => toggleService(s.id)}
-                                className={`cursor-pointer border rounded-xl p-4 transition-all flex justify-between items-center ${isSelected ? 'bg-white text-black border-white' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}
-                            >
-                                <span className="font-bold">{s.name}</span>
-                                <span className={isSelected ? 'text-black' : 'text-white'}>R$ {s.price}</span>
-                            </div>
-                        )
-                    })}
+        // Construct WhatsApp message with appointment details
+        const message = `Olá! Gostaria de confirmar meu agendamento:\n\n` +
+            `*Cliente:* ${formData.nome}\n` +
+            `*Telefone:* ${formData.telefone}\n` +
+            `*Serviço(s):* ${serviceName}\n` +
+            `*Profissional:* ${barber ? barber.name : 'Qualquer Profissional'}\n` +
+            `*Data:* ${formattedDate}\n` +
+            `*Horário:* ${formData.hora}\n` +
+            `*Valor:* R$ ${totalPrice.toFixed(2)}\n` +
+            (formData.observacoes.trim() ? `*Observações:* ${formData.observacoes.trim()}` : '');
+
+        const whatsappUrl = `https://wa.me/557999914079?text=${encodeURIComponent(message)}`;
+
+        showToast('Agendamento enviado com sucesso! Redirecionando para o WhatsApp...', 'success');
+
+        // Clear form state
+        setFormData({ nome: '', telefone: '', data: getTodayString(), hora: '', observacoes: '' });
+        setSelectedServices([]);
+        setSelectedBarber('');
+
+        // Redirect to WhatsApp
+        window.location.href = whatsappUrl;
+    };
+
+    // Horários disponíveis: 08:00 às 12:00 e 14:00 às 19:00 (de 1 em 1 hora)
+    const timeSlots = [
+        '08:00',
+        '09:00',
+        '10:00',
+        '11:00',
+        '14:00',
+        '15:00',
+        '16:00',
+        '17:00',
+        '18:00',
+        '19:00'
+    ];
+
+    const nextDays = getNextDays();
+
+    return (
+        <div className="max-w-2xl mx-auto bg-[#111] border border-white/10 p-8 rounded-2xl shadow-2xl">
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                    <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
+                        <User size={16} /> Nome Completo
+                    </label>
+                    <input
+                        type="text"
+                        name="nome"
+                        value={formData.nome}
+                        onChange={handleChange}
+                        className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors"
+                        required
+                    />
                 </div>
-                {selectedServices.length > 0 && (
-                     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 flex justify-between items-center text-white">
-                        <span className="text-gray-400">Total Estimado:</span>
-                        <span className="text-xl font-bold font-heading">R$ {totalPrice.toFixed(2)}</span>
-                    </div>
-                )}
-            </div>
 
-            {barbers.length > 0 ? (
+                <div>
+                    <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
+                        <Phone size={16} /> Telefone
+                    </label>
+                    <input
+                        type="tel"
+                        name="telefone"
+                        value={formData.telefone}
+                        onChange={handleChange}
+                        className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors"
+                        required
+                    />
+                </div>
+
                 <div>
                     <label className="block text-sm text-gray-400 mb-4 flex items-center gap-2">
-                        <User size={16} /> Profissional
+                        <Scissors size={16} /> Serviços (Selecione um ou mais)
                     </label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {barbers.map(b => (
-                            <div 
-                                key={b.id}
-                                onClick={() => setSelectedBarber(b.id)}
-                                className={`cursor-pointer border rounded-2xl p-4 flex flex-col items-center gap-3 transition-all transform ${selectedBarber === b.id ? 'bg-white text-black border-white scale-105 shadow-[0_0_20px_rgba(255,255,255,0.2)]' : 'bg-black border-gray-800 text-gray-500 hover:border-gray-600'}`}
-                            >
-                                <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg ${selectedBarber === b.id ? 'bg-black text-white' : 'bg-gray-800 text-gray-400'}`}>
-                                    {b.name.substring(0, 2).toUpperCase()}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                        {services.map(s => {
+                            const isSelected = selectedServices.includes(s.id);
+                            return (
+                                <div
+                                    key={s.id}
+                                    onClick={() => toggleService(s.id)}
+                                    className={`cursor-pointer border rounded-xl p-4 transition-all flex justify-between items-center ${isSelected ? 'bg-white text-black border-white' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}
+                                >
+                                    <span className="font-bold">{s.name}</span>
+                                    <span className={isSelected ? 'text-black' : 'text-white'}>R$ {s.price}</span>
                                 </div>
-                                <span className="font-bold text-sm text-center">{b.name}</span>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
+                    {selectedServices.length > 0 && (
+                        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 flex justify-between items-center text-white">
+                            <span className="text-gray-400">Total Estimado:</span>
+                            <span className="text-xl font-bold font-heading">R$ {totalPrice.toFixed(2)}</span>
+                        </div>
+                    )}
                 </div>
-            ) : (
-                <div className="bg-yellow-900/10 border border-yellow-900/30 p-4 rounded-xl text-center">
-                    <p className="text-yellow-500 text-sm">Nenhum barbeiro disponível no momento. Verifique o cadastro no Admin.</p>
-                </div>
-            )}
 
-            <div>
-                 <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
-                    <Calendar size={16} /> Data
-                </label>
-                <input 
-                    type="date" 
-                    name="data"
-                    min={new Date().toISOString().split('T')[0]}
-                    value={formData.data}
-                    onChange={handleChange}
-                    className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors"
-                    required
-                />
-            </div>
+                {barbers.length > 0 ? (
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-4 flex items-center gap-2">
+                            <User size={16} /> Profissional
+                        </label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {barbers.map(b => (
+                                <div
+                                    key={b.id}
+                                    onClick={() => setSelectedBarber(b.id)}
+                                    className={`cursor-pointer border rounded-2xl p-4 flex flex-col items-center gap-3 transition-all transform ${selectedBarber === b.id ? 'bg-white text-black border-white scale-105 shadow-[0_0_20px_rgba(255,255,255,0.2)]' : 'bg-black border-gray-800 text-gray-500 hover:border-gray-600'}`}
+                                >
+                                    <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg ${selectedBarber === b.id ? 'bg-black text-white' : 'bg-gray-800 text-gray-400'}`}>
+                                        {b.name.substring(0, 2).toUpperCase()}
+                                    </div>
+                                    <span className="font-bold text-sm text-center">{b.name}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-yellow-900/10 border border-yellow-900/30 p-4 rounded-xl text-center">
+                        <p className="text-yellow-500 text-sm">Nenhum barbeiro disponível no momento. Verifique o cadastro no Admin.</p>
+                    </div>
+                )}
 
-            {/* Time Grid Selection */}
-            {formData.data && selectedBarber && selectedServices.length > 0 ? (
-                 <div className="animate-fade-in">
-                    <label className="block text-sm text-gray-400 mb-4 flex items-center gap-2">
-                        <Clock size={16} /> Horários Disponíveis
+                <div>
+                    <label className="block text-sm text-gray-400 mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                            <Calendar size={16} className="text-white" /> Data do Agendamento
+                        </span>
+                        {formData.data && (
+                            <span className="text-xs font-bold text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20 uppercase tracking-wider">
+                                {new Date(formData.data + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </span>
+                        )}
                     </label>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                        {timeSlots.map((time) => {
-                            // Check availability using context logic
-                            const serviceId = selectedServices.join(',');
-                            const available = isSlotAvailable(formData.data, time, serviceId, selectedBarber);
-                            
+
+                    {/* Quick Selection Chips */}
+                    <div className="flex gap-2 overflow-x-auto pb-3 mb-3 pt-1 scrollbar-thin">
+                        {nextDays.map((item) => {
+                            const isSelected = formData.data === item.dateStr;
                             return (
                                 <button
-                                    key={time}
+                                    key={item.dateStr}
                                     type="button"
-                                    disabled={!available}
-                                    onClick={() => setFormData({...formData, hora: time})}
-                                    className={`
-                                        py-3 px-1 rounded-xl text-sm font-black transition-all border
-                                        ${!available 
-                                            ? 'bg-red-500/10 border-red-500/40 text-red-500 cursor-not-allowed line-through opacity-40' 
-                                            : formData.hora === time 
-                                                ? 'bg-white text-black border-white scale-105 shadow-xl' 
-                                                : 'bg-black border-gray-800 text-green-500 hover:border-green-500 hover:scale-[1.05]'
-                                        }
-                                    `}
+                                    onClick={() => setFormData({ ...formData, data: item.dateStr })}
+                                    className={`flex-shrink-0 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center min-w-[80px] ${
+                                        isSelected
+                                            ? 'bg-white text-black border-white scale-105 shadow-lg'
+                                            : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white'
+                                    }`}
                                 >
-                                    {time}
+                                    <span>{item.label}</span>
                                 </button>
                             );
                         })}
                     </div>
-                    {formData.hora && (
-                        <p className="text-green-500 text-xs mt-3 text-center font-bold">Horário {formData.hora} selecionado!</p>
-                    )}
-                </div>
-            ) : (
-                <div className="bg-white/5 rounded-2xl p-8 text-center text-gray-400 text-sm border border-dashed border-white/10">
-                    {!selectedServices.length ? "Selecione os serviços para continuar." : 
-                     !selectedBarber ? "Quase lá! Escolha o barbeiro." : 
-                     "Para finalizar, escolha a data desejada."}
-                </div>
-            )}
 
-            <div>
-                 <label className="block text-sm text-gray-400 mb-2 mt-4">Observações</label>
-                 <textarea 
-                    name="observacoes"
-                    value={formData.observacoes}
-                    onChange={handleChange}
-                    className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors min-h-[100px]"
-                 />
-            </div>
+                    {/* Full Styled Date Input */}
+                    <div className="relative">
+                        <input
+                            type="date"
+                            name="data"
+                            min={getTodayString()}
+                            value={formData.data}
+                            onChange={handleChange}
+                            style={{ colorScheme: 'dark' }}
+                            className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3.5 text-white font-medium focus:outline-none focus:border-white transition-all cursor-pointer accent-white hover:border-gray-600 text-base"
+                            required
+                        />
+                    </div>
+                </div>
 
-            <button 
-                type="submit"
-                disabled={!formData.hora || !formData.data || !selectedBarber || selectedServices.length === 0}
-                className={`w-full font-bold py-4 rounded-lg transition-all text-lg mt-4 shadow-lg transform
+                {/* Time Grid Selection */}
+                {formData.data && selectedBarber && selectedServices.length > 0 ? (
+                    <div className="animate-fade-in">
+                        <label className="block text-sm text-gray-400 mb-4 flex items-center gap-2">
+                            <Clock size={16} /> Horários Disponíveis
+                        </label>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                            {timeSlots.map((time) => {
+                                // Check availability using context logic
+                                const serviceId = selectedServices.join(',');
+                                const available = isSlotAvailable(formData.data, time, serviceId, selectedBarber);
+
+                                return (
+                                    <button
+                                        key={time}
+                                        type="button"
+                                        disabled={!available}
+                                        onClick={() => setFormData({ ...formData, hora: time })}
+                                        className={`
+                                        py-3 px-1 rounded-xl text-sm font-black transition-all border
+                                        ${!available
+                                                ? 'bg-red-500/10 border-red-500/40 text-red-500 cursor-not-allowed line-through opacity-40'
+                                                : formData.hora === time
+                                                    ? 'bg-white text-black border-white scale-105 shadow-xl'
+                                                    : 'bg-black border-gray-800 text-green-500 hover:border-green-500 hover:scale-[1.05]'
+                                            }
+                                    `}
+                                    >
+                                        {time}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {formData.hora && (
+                            <p className="text-green-500 text-xs mt-3 text-center font-bold">Horário {formData.hora} selecionado!</p>
+                        )}
+                    </div>
+                ) : (
+                    <div className="bg-white/5 rounded-2xl p-8 text-center text-gray-400 text-sm border border-dashed border-white/10">
+                        {!selectedServices.length ? "Selecione os serviços para continuar." :
+                            !selectedBarber ? "Quase lá! Escolha o barbeiro." :
+                                "Para finalizar, escolha a data desejada."}
+                    </div>
+                )}
+
+                <div>
+                    <label className="block text-sm text-gray-400 mb-2 mt-4">Observações</label>
+                    <textarea
+                        name="observacoes"
+                        value={formData.observacoes}
+                        onChange={handleChange}
+                        className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors min-h-[100px]"
+                    />
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={!formData.hora || !formData.data || !selectedBarber || selectedServices.length === 0}
+                    className={`w-full font-bold py-4 rounded-lg transition-all text-lg mt-4 shadow-lg transform
                     ${(!formData.hora || !formData.data || !selectedBarber || selectedServices.length === 0)
-                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                        : 'bg-white text-black hover:bg-gray-200 hover:shadow-xl hover:scale-[1.02] active:scale-95'
-                    }
+                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                            : 'bg-white text-black hover:bg-gray-200 hover:shadow-xl hover:scale-[1.02] active:scale-95'
+                        }
                 `}
-            >
-                Confirmar Agendamento
-            </button>
-        </form>
-      </div>
-  );
+                >
+                    Confirmar Agendamento
+                </button>
+            </form>
+        </div>
+    );
 }
 
 export default function SchedulePage() {
