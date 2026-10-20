@@ -1,6 +1,7 @@
 'use client';
 import PageBanner from '../components/PageBanner';
 import { useApp } from '@/app/context/AppContext';
+import { formatDurationDisplay } from '../admin/servicos/page';
 import Link from 'next/link';
 
 export default function ServicesPage() {
@@ -17,7 +18,7 @@ export default function ServicesPage() {
                 <h3 className="text-2xl font-bold mb-2 text-white group-hover:text-gray-200 transition-colors">{service.name || 'Serviço'}</h3>
                 <div className="flex justify-between items-end mt-4">
                     <span className="text-gray-400 flex items-center gap-2">
-                        ⏱ {service.duration || '30 min'}
+                        ⏱ {formatDurationDisplay(service.duration)}
                     </span>
                     <span className="text-3xl font-bold text-white">R$ {(Number(service.price) || 0).toFixed(2)}</span>
                 </div>

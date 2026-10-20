@@ -5,8 +5,18 @@ import { useToast } from '@/app/context/ToastContext';
 import { Check, X, Clock, Edit2, Trash2, CalendarCheck, UserX, Plus, DollarSign, ArrowRight, Eye, User, Phone as PhoneIcon, UserCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const calculateEndTime = (startTime: string, durationMins: number): string => {
+  if (!startTime) return '';
+  const [h, m] = startTime.split(':').map(Number);
+  const totalStartMins = h * 60 + m;
+  const totalEndMins = totalStartMins + durationMins;
+  const endH = Math.floor(totalEndMins / 60) % 24;
+  const endM = totalEndMins % 60;
+  return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+};
+
 export default function AppointmentsAdminPage() {
-  const { appointments, products, updateAppointmentStatus, updateAppointment, deleteAppointment, services, addAppointment, isSlotAvailable } = useApp();
+  const { appointments, products, updateAppointmentStatus, updateAppointment, deleteAppointment, services, addAppointment, isSlotAvailable, getTotalDuration } = useApp();
   const { showToast } = useToast();
   
   const [isCreating, setIsCreating] = useState(false);
@@ -346,9 +356,16 @@ export default function AppointmentsAdminPage() {
                                     <div className="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-white/5 w-full md:w-auto">
                                         <Clock size={20} className="text-[#d4af37]" /> 
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] text-gray-400 uppercase tracking-widest">Data e Hora</span>
-                                            <div className="text-white font-bold text-lg leading-none">
-                                                {appt.date.split('-').reverse().join('/')} <span className="text-gray-500 mx-1">|</span> {appt.time}
+                                            <span className="text-[10px] text-gray-400 uppercase tracking-widest">Data e Horário</span>
+                                            <div className="text-white font-bold text-lg leading-none flex flex-wrap items-center gap-2">
+                                                <span>{appt.date.split('-').reverse().join('/')}</span>
+                                                <span className="text-gray-500">|</span>
+                                                <span className="text-[#d4af37]">{appt.time}</span>
+                                                {appt.time && appt.serviceId && (
+                                                    <span className="text-xs text-gray-400 font-normal">
+                                                        (término às {calculateEndTime(appt.time, getTotalDuration(appt.serviceId))})
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

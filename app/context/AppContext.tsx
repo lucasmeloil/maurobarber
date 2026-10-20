@@ -28,6 +28,7 @@ export type Appointment = {
   products?: { id: string; name: string; price: number; quantity: number }[];
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'noshow';
   viewed: boolean;
+  createdAt?: string;
 };
 
 export type CustomRevenue = {
@@ -78,7 +79,8 @@ interface AppContextType {
   updateAppointmentStatus: (id: string, status: Appointment['status']) => void;
   updateAppointment: (id: string, data: Partial<Appointment>) => void;
   deleteAppointment: (id: string) => void;
-  markAsViewed: () => void;
+  markAsViewed: () => Promise<void>;
+  markOneAsViewed: (id: string) => Promise<void>;
   addService: (service: Omit<Service, 'id'>) => Promise<boolean>;
   updateService: (id: string, service:  Omit<Service, 'id'>) => Promise<boolean>;
   deleteService: (id: string) => Promise<boolean>;
@@ -90,6 +92,8 @@ interface AppContextType {
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<boolean>;
   deleteExpense: (id: string) => Promise<boolean>;
   isSlotAvailable: (date: string, time: string, serviceId: string, barberId?: string, excludeAppointmentId?: string) => boolean;
+  parseDuration: (durationStr: string) => number;
+  getTotalDuration: (serviceIdsStr: string) => number;
   loadingAuth: boolean;
   currentUser: any;
   logout: () => Promise<void>;
@@ -240,14 +244,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Helpers
   const parseDuration = (durationStr: string): number => {
-    if(!durationStr) return 30;
-    const clean = durationStr.toLowerCase().replace(/\s/g, '');
-    if(clean.includes('h') && !clean.includes('min')) {
-         const h = parseInt(clean);
-         return isNaN(h) ? 30 : h * 60;
+    if (!durationStr) return 30;
+    const clean = String(durationStr).toLowerCase().replace(/\s/g, '');
+    if (clean.includes('h')) {
+      const parts = clean.split('h');
+      const h = parseInt(parts[0]) || 0;
+      const m = parseInt(parts[1]?.replace(/\D/g, '')) || 0;
+      return (h * 60) + m;
     }
     const mins = parseInt(clean.replace(/\D/g, ''));
-    return isNaN(mins) ? 30 : mins;
+    return isNaN(mins) || mins <= 0 ? 30 : mins;
   };
 
   const timeToMinutes = (time: string): number => {
@@ -299,7 +305,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await addDoc(collection(db, "appointments"), {
             ...appt,
             status: 'pending',
-            viewed: false
+            viewed: false,
+            createdAt: new Date().toISOString()
         });
         return true;
     } catch (e) {
@@ -323,12 +330,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };  
 
   const markAsViewed = async () => {
-    // Only mark pending appointments as viewed
-    const pendingUnviewed = appointments.filter(a => !a.viewed && a.status === 'pending');
-    pendingUnviewed.forEach(async (a) => {
-        const apptRef = doc(db, "appointments", a.id);
-        await updateDoc(apptRef, { viewed: true });
-    });
+    const unviewed = appointments.filter(a => !a.viewed);
+    try {
+      await Promise.all(
+        unviewed.map(a => updateDoc(doc(db, "appointments", a.id), { viewed: true }))
+      );
+    } catch (e) {
+      console.error("Erro ao marcar todas as notificações como lidas:", e);
+    }
+  };
+
+  const markOneAsViewed = async (id: string) => {
+    try {
+      await updateDoc(doc(db, "appointments", id), { viewed: true });
+    } catch (e) {
+      console.error("Erro ao marcar agendamento como lido:", e);
+    }
   };
 
   const addService = async (service: Omit<Service, 'id'>): Promise<boolean> => {
@@ -524,10 +541,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteTeamMember,
       addAppointment, 
       isSlotAvailable,
+      parseDuration,
+      getTotalDuration,
       updateAppointmentStatus, 
       updateAppointment,
       deleteAppointment,
       markAsViewed,
+      markOneAsViewed,
       addService, 
       updateService, 
       deleteService,

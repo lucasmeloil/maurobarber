@@ -61,10 +61,10 @@ export default function Home() {
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div className="order-2 md:order-1">
                  <ImageCard 
-                    src="/assets/ambiente-real-original.png" 
+                    src="/assets/ambiente-real.jpg" 
                     alt="Ambiente Mauro Barber" 
                     title="Nosso Ambiente"
-                    subtitle="Conforto e qualidade para você."
+                    subtitle="Estrutura moderna, climatizada e pensada para o seu máximo conforto."
                  />
             </div>
             <div className="order-1 md:order-2">

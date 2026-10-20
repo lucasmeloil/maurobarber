@@ -6,8 +6,33 @@ import { useToast } from '@/app/context/ToastContext';
 import PageBanner from '../components/PageBanner';
 import { useSearchParams } from 'next/navigation';
 
+export const formatDurationDisplay = (val: string | number): string => {
+    if (!val) return '30 min';
+    const str = String(val).trim();
+    if (/^\d+$/.test(str)) {
+        const mins = parseInt(str);
+        if (mins >= 60) {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return m > 0 ? `${h}h ${m}min` : `${h}h`;
+        }
+        return `${str} min`;
+    }
+    return str;
+};
+
+export const calculateEndTime = (startTime: string, durationMins: number): string => {
+    if (!startTime) return '';
+    const [h, m] = startTime.split(':').map(Number);
+    const totalStartMins = h * 60 + m;
+    const totalEndMins = totalStartMins + durationMins;
+    const endH = Math.floor(totalEndMins / 60) % 24;
+    const endM = totalEndMins % 60;
+    return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+};
+
 function ScheduleForm() {
-    const { services, addAppointment, team, isSlotAvailable } = useApp();
+    const { services, addAppointment, team, isSlotAvailable, getTotalDuration } = useApp();
     const searchParams = useSearchParams();
     const preSelectedBarberId = searchParams.get('barberId');
 
@@ -15,7 +40,6 @@ function ScheduleForm() {
     const [selectedBarber, setSelectedBarber] = useState<string>('');
 
     const barbers = team.filter(m => m.role === 'barber');
-    console.log("Barbeiros carregados na página de agendamento:", barbers);
 
     useEffect(() => {
         if (preSelectedBarberId) {
@@ -69,8 +93,56 @@ function ScheduleForm() {
         observacoes: ''
     });
 
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    // Sincroniza o relógio a cada 30 segundos para garantir precisão em tempo real
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 30000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const isSlotInPast = (dateStr: string, timeSlot: string): boolean => {
+        if (!dateStr || !timeSlot) return false;
+        const year = currentTime.getFullYear();
+        const month = String(currentTime.getMonth() + 1).padStart(2, '0');
+        const day = String(currentTime.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        // Se a data já for no passado
+        if (dateStr < todayStr) return true;
+
+        // Se a data for hoje, checa a hora e minuto atuais
+        if (dateStr === todayStr) {
+            const [slotHours, slotMinutes] = timeSlot.split(':').map(Number);
+            const currentHours = currentTime.getHours();
+            const currentMinutes = currentTime.getMinutes();
+
+            if (slotHours < currentHours) return true;
+            if (slotHours === currentHours && slotMinutes <= currentMinutes) return true;
+        }
+
+        return false;
+    };
+
+    const handleDateSelect = (dateStr: string) => {
+        setFormData(prev => {
+            const willBePast = prev.hora ? isSlotInPast(dateStr, prev.hora) : false;
+            return {
+                ...prev,
+                data: dateStr,
+                hora: willBePast ? '' : prev.hora
+            };
+        });
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        if (e.target.name === 'data') {
+            handleDateSelect(e.target.value);
+        } else {
+            setFormData({ ...formData, [e.target.name]: e.target.value });
+        }
     };
 
     const toggleService = (id: string) => {
@@ -84,6 +156,10 @@ function ScheduleForm() {
     const totalPrice = services
         .filter(s => selectedServices.includes(s.id))
         .reduce((acc, curr) => acc + Number(curr.price), 0);
+
+    const totalDurationMinutes = getTotalDuration(selectedServices.join(','));
+    const totalDurationText = formatDurationDisplay(totalDurationMinutes);
+    const estimatedEndTime = calculateEndTime(formData.hora, totalDurationMinutes);
 
     const { showToast } = useToast();
 
@@ -102,6 +178,12 @@ function ScheduleForm() {
 
         if (!formData.hora) {
             showToast('Selecione um horário!', 'error');
+            return;
+        }
+
+        if (isSlotInPast(formData.data, formData.hora)) {
+            showToast('O horário selecionado já passou! Escolha outro horário.', 'error');
+            setFormData(prev => ({ ...prev, hora: '' }));
             return;
         }
 
@@ -142,14 +224,15 @@ function ScheduleForm() {
             }
         }
 
-        // Construct WhatsApp message with appointment details
+        // Construct WhatsApp message with appointment details including duration and end time
         const message = `Olá! Gostaria de confirmar meu agendamento:\n\n` +
             `*Cliente:* ${formData.nome}\n` +
             `*Telefone:* ${formData.telefone}\n` +
             `*Serviço(s):* ${serviceName}\n` +
             `*Profissional:* ${barber ? barber.name : 'Qualquer Profissional'}\n` +
             `*Data:* ${formattedDate}\n` +
-            `*Horário:* ${formData.hora}\n` +
+            `*Horário:* ${formData.hora} (término previsto às ${estimatedEndTime})\n` +
+            `*Duração Estimada:* ${totalDurationMinutes} min\n` +
             `*Valor:* R$ ${totalPrice.toFixed(2)}\n` +
             (formData.observacoes.trim() ? `*Observações:* ${formData.observacoes.trim()}` : '');
 
@@ -166,21 +249,60 @@ function ScheduleForm() {
         window.location.href = whatsappUrl;
     };
 
-    // Horários disponíveis: 08:00 às 12:00 e 14:00 às 19:00 (de 1 em 1 hora)
-    const timeSlots = [
-        '08:00',
-        '09:00',
-        '10:00',
-        '11:00',
-        '14:00',
-        '15:00',
-        '16:00',
-        '17:00',
-        '18:00',
-        '19:00'
+    // Horários disponíveis com horas e minutos: Manhã (08h às 11h30) e Tarde/Noite (14h às 19h30)
+    const morningSlots = [
+        '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30'
+    ];
+
+    const afternoonSlots = [
+        '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
     ];
 
     const nextDays = getNextDays();
+
+    const renderSlotButton = (time: string) => {
+        const serviceId = selectedServices.join(',');
+        const isPast = isSlotInPast(formData.data, time);
+        const isConflict = !isSlotAvailable(formData.data, time, serviceId, selectedBarber);
+        const available = !isPast && !isConflict;
+
+        return (
+            <button
+                key={time}
+                type="button"
+                disabled={!available}
+                onClick={() => setFormData({ ...formData, hora: time })}
+                title={
+                    isPast
+                        ? 'Horário já expirado hoje'
+                        : isConflict
+                            ? 'Horário já ocupado na agenda'
+                            : `Disponível às ${time} (término aprox. às ${calculateEndTime(time, totalDurationMinutes)})`
+                }
+                className={`
+                    py-2.5 px-1 rounded-xl text-xs md:text-sm font-black transition-all border flex flex-col items-center justify-center
+                    ${!available
+                        ? 'bg-red-500/10 border-red-500/30 text-red-500/50 cursor-not-allowed line-through opacity-40'
+                        : formData.hora === time
+                            ? 'bg-white text-black border-white scale-105 shadow-xl ring-2 ring-white/50'
+                            : 'bg-black border-gray-800 text-green-400 hover:border-green-400 hover:scale-[1.04]'
+                    }
+                `}
+            >
+                <span>{time}</span>
+                {isPast && (
+                    <span className="text-[9px] no-underline font-semibold tracking-tighter opacity-80 mt-0.5">
+                        Já passou
+                    </span>
+                )}
+                {!isPast && isConflict && (
+                    <span className="text-[9px] no-underline font-semibold tracking-tighter opacity-80 mt-0.5">
+                        Ocupado
+                    </span>
+                )}
+            </button>
+        );
+    };
 
     return (
         <div className="max-w-2xl mx-auto bg-[#111] border border-white/10 p-8 rounded-2xl shadow-2xl">
@@ -224,18 +346,41 @@ function ScheduleForm() {
                                 <div
                                     key={s.id}
                                     onClick={() => toggleService(s.id)}
-                                    className={`cursor-pointer border rounded-xl p-4 transition-all flex justify-between items-center ${isSelected ? 'bg-white text-black border-white' : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'}`}
+                                    className={`cursor-pointer border rounded-xl p-4 transition-all flex justify-between items-center ${
+                                        isSelected
+                                            ? 'bg-white text-black border-white'
+                                            : 'bg-black border-gray-800 text-gray-400 hover:border-gray-600'
+                                    }`}
                                 >
-                                    <span className="font-bold">{s.name}</span>
-                                    <span className={isSelected ? 'text-black' : 'text-white'}>R$ {s.price}</span>
+                                    <div>
+                                        <span className="font-bold block text-sm md:text-base">{s.name}</span>
+                                        <span
+                                            className={`text-xs flex items-center gap-1 mt-0.5 ${
+                                                isSelected ? 'text-gray-700' : 'text-gray-500'
+                                            }`}
+                                        >
+                                            <Clock size={12} /> {formatDurationDisplay(s.duration)}
+                                        </span>
+                                    </div>
+                                    <span className={`font-bold ${isSelected ? 'text-black' : 'text-white'}`}>
+                                        R$ {Number(s.price).toFixed(2)}
+                                    </span>
                                 </div>
-                            )
+                            );
                         })}
                     </div>
                     {selectedServices.length > 0 && (
-                        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 flex justify-between items-center text-white">
-                            <span className="text-gray-400">Total Estimado:</span>
-                            <span className="text-xl font-bold font-heading">R$ {totalPrice.toFixed(2)}</span>
+                        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-white">
+                            <div>
+                                <span className="text-gray-400 text-xs block">Total Estimado:</span>
+                                <span className="text-xl font-bold font-heading">R$ {totalPrice.toFixed(2)}</span>
+                            </div>
+                            <div className="sm:text-right">
+                                <span className="text-gray-400 text-xs block">Tempo de Atendimento:</span>
+                                <span className="text-sm font-bold text-yellow-400 flex items-center gap-1.5">
+                                    <Clock size={14} /> {totalDurationText} ({totalDurationMinutes} min)
+                                </span>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -250,9 +395,17 @@ function ScheduleForm() {
                                 <div
                                     key={b.id}
                                     onClick={() => setSelectedBarber(b.id)}
-                                    className={`cursor-pointer border rounded-2xl p-4 flex flex-col items-center gap-3 transition-all transform ${selectedBarber === b.id ? 'bg-white text-black border-white scale-105 shadow-[0_0_20px_rgba(255,255,255,0.2)]' : 'bg-black border-gray-800 text-gray-500 hover:border-gray-600'}`}
+                                    className={`cursor-pointer border rounded-2xl p-4 flex flex-col items-center gap-3 transition-all transform ${
+                                        selectedBarber === b.id
+                                            ? 'bg-white text-black border-white scale-105 shadow-[0_0_20px_rgba(255,255,255,0.2)]'
+                                            : 'bg-black border-gray-800 text-gray-500 hover:border-gray-600'
+                                    }`}
                                 >
-                                    <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg ${selectedBarber === b.id ? 'bg-black text-white' : 'bg-gray-800 text-gray-400'}`}>
+                                    <div
+                                        className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg ${
+                                            selectedBarber === b.id ? 'bg-black text-white' : 'bg-gray-800 text-gray-400'
+                                        }`}
+                                    >
                                         {b.name.substring(0, 2).toUpperCase()}
                                     </div>
                                     <span className="font-bold text-sm text-center">{b.name}</span>
@@ -262,7 +415,9 @@ function ScheduleForm() {
                     </div>
                 ) : (
                     <div className="bg-yellow-900/10 border border-yellow-900/30 p-4 rounded-xl text-center">
-                        <p className="text-yellow-500 text-sm">Nenhum barbeiro disponível no momento. Verifique o cadastro no Admin.</p>
+                        <p className="text-yellow-500 text-sm">
+                            Nenhum barbeiro disponível no momento. Verifique o cadastro no Admin.
+                        </p>
                     </div>
                 )}
 
@@ -273,20 +428,25 @@ function ScheduleForm() {
                         </span>
                         {formData.data && (
                             <span className="text-xs font-bold text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20 uppercase tracking-wider">
-                                {new Date(formData.data + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                {new Date(formData.data + 'T00:00:00').toLocaleDateString('pt-BR', {
+                                    weekday: 'short',
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                })}
                             </span>
                         )}
                     </label>
 
                     {/* Quick Selection Chips */}
                     <div className="flex gap-2 overflow-x-auto pb-3 mb-3 pt-1 scrollbar-thin">
-                        {nextDays.map((item) => {
+                        {nextDays.map(item => {
                             const isSelected = formData.data === item.dateStr;
                             return (
                                 <button
                                     key={item.dateStr}
                                     type="button"
-                                    onClick={() => setFormData({ ...formData, data: item.dateStr })}
+                                    onClick={() => handleDateSelect(item.dateStr)}
                                     className={`flex-shrink-0 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center min-w-[80px] ${
                                         isSelected
                                             ? 'bg-white text-black border-white scale-105 shadow-lg'
@@ -314,48 +474,64 @@ function ScheduleForm() {
                     </div>
                 </div>
 
-                {/* Time Grid Selection */}
+                {/* Time Grid Selection em Horas e Minutos */}
                 {formData.data && selectedBarber && selectedServices.length > 0 ? (
-                    <div className="animate-fade-in">
-                        <label className="block text-sm text-gray-400 mb-4 flex items-center gap-2">
-                            <Clock size={16} /> Horários Disponíveis
-                        </label>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                            {timeSlots.map((time) => {
-                                // Check availability using context logic
-                                const serviceId = selectedServices.join(',');
-                                const available = isSlotAvailable(formData.data, time, serviceId, selectedBarber);
-
-                                return (
-                                    <button
-                                        key={time}
-                                        type="button"
-                                        disabled={!available}
-                                        onClick={() => setFormData({ ...formData, hora: time })}
-                                        className={`
-                                        py-3 px-1 rounded-xl text-sm font-black transition-all border
-                                        ${!available
-                                                ? 'bg-red-500/10 border-red-500/40 text-red-500 cursor-not-allowed line-through opacity-40'
-                                                : formData.hora === time
-                                                    ? 'bg-white text-black border-white scale-105 shadow-xl'
-                                                    : 'bg-black border-gray-800 text-green-500 hover:border-green-500 hover:scale-[1.05]'
-                                            }
-                                    `}
-                                    >
-                                        {time}
-                                    </button>
-                                );
-                            })}
+                    <div className="animate-fade-in space-y-4">
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm text-gray-400 flex items-center gap-2">
+                                <Clock size={16} /> Horários Disponíveis (Horas e Minutos)
+                            </label>
+                            <span className="text-xs text-gray-500">
+                                Horário atual: {String(currentTime.getHours()).padStart(2, '0')}:
+                                {String(currentTime.getMinutes()).padStart(2, '0')}
+                            </span>
                         </div>
+
+                        {/* Turno Manhã */}
+                        <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">
+                                Turno Manhã
+                            </span>
+                            <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-4 gap-2.5">
+                                {morningSlots.map(time => renderSlotButton(time))}
+                            </div>
+                        </div>
+
+                        {/* Turno Tarde / Noite */}
+                        <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">
+                                Turno Tarde / Noite
+                            </span>
+                            <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
+                                {afternoonSlots.map(time => renderSlotButton(time))}
+                            </div>
+                        </div>
+
+                        {/* Alerta de Horário e Término Previsto em Horas e Minutos */}
                         {formData.hora && (
-                            <p className="text-green-500 text-xs mt-3 text-center font-bold">Horário {formData.hora} selecionado!</p>
+                            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3.5 mt-3 text-center">
+                                <p className="text-green-400 text-sm font-bold flex flex-wrap items-center justify-center gap-2">
+                                    <span>
+                                        Início: <strong>{formData.hora}</strong>
+                                    </span>
+                                    <span>•</span>
+                                    <span>
+                                        Término previsto: <strong>{estimatedEndTime}</strong>
+                                    </span>
+                                    <span className="text-xs font-normal text-green-300">
+                                        ({totalDurationMinutes} min de atendimento)
+                                    </span>
+                                </p>
+                            </div>
                         )}
                     </div>
                 ) : (
                     <div className="bg-white/5 rounded-2xl p-8 text-center text-gray-400 text-sm border border-dashed border-white/10">
-                        {!selectedServices.length ? "Selecione os serviços para continuar." :
-                            !selectedBarber ? "Quase lá! Escolha o barbeiro." :
-                                "Para finalizar, escolha a data desejada."}
+                        {!selectedServices.length
+                            ? 'Selecione os serviços para continuar.'
+                            : !selectedBarber
+                                ? 'Quase lá! Escolha o barbeiro.'
+                                : 'Para finalizar, escolha a data desejada.'}
                     </div>
                 )}
 
@@ -365,19 +541,29 @@ function ScheduleForm() {
                         name="observacoes"
                         value={formData.observacoes}
                         onChange={handleChange}
+                        placeholder="Alguma preferência ou observação para o barbeiro?"
                         className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white transition-colors min-h-[100px]"
                     />
                 </div>
 
                 <button
                     type="submit"
-                    disabled={!formData.hora || !formData.data || !selectedBarber || selectedServices.length === 0}
-                    className={`w-full font-bold py-4 rounded-lg transition-all text-lg mt-4 shadow-lg transform
-                    ${(!formData.hora || !formData.data || !selectedBarber || selectedServices.length === 0)
+                    disabled={
+                        !formData.hora ||
+                        !formData.data ||
+                        !selectedBarber ||
+                        selectedServices.length === 0 ||
+                        isSlotInPast(formData.data, formData.hora)
+                    }
+                    className={`w-full font-bold py-4 rounded-lg transition-all text-lg mt-4 shadow-lg transform ${
+                        !formData.hora ||
+                        !formData.data ||
+                        !selectedBarber ||
+                        selectedServices.length === 0 ||
+                        isSlotInPast(formData.data, formData.hora)
                             ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                             : 'bg-white text-black hover:bg-gray-200 hover:shadow-xl hover:scale-[1.02] active:scale-95'
-                        }
-                `}
+                    }`}
                 >
                     Confirmar Agendamento
                 </button>
@@ -388,7 +574,13 @@ function ScheduleForm() {
 
 export default function SchedulePage() {
     return (
-        <Suspense fallback={<div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-white">Carregando agendamento...</div>}>
+        <Suspense
+            fallback={
+                <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-white">
+                    Carregando agendamento...
+                </div>
+            }
+        >
             <PageBanner title="Agendamento" subtitle="Reserve seu momento" />
             <div className="container mx-auto px-4 py-16">
                 <ScheduleForm />

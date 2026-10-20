@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import AdminSidebar from './components/AdminSidebar';
+import AdminNavbar from './components/AdminNavbar';
 import NotificationSystem from './components/NotificationSystem';
 import { useApp } from '../context/AppContext';
 
@@ -79,9 +80,10 @@ export default function AdminLayout({
     <div className="flex bg-[#0a0a0a] min-h-screen text-white">
       <NotificationSystem />
       <AdminSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+      <AdminNavbar collapsed={collapsed} isMobile={isMobile} />
       <motion.div 
         animate={{ marginLeft: isMobile ? 0 : (collapsed ? 80 : 250) }}
-        className="flex-1 transition-all duration-300 p-4 pt-20 md:p-8 w-full overflow-hidden"
+        className="flex-1 transition-all duration-300 p-4 pt-24 md:p-8 md:pt-24 w-full overflow-hidden"
       >
         {children}
       </motion.div>
