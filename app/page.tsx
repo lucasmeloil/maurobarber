@@ -31,27 +31,93 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-black">
       {/* Hero Section */}
-      <section className="relative min-h-screen md:h-screen w-full overflow-hidden bg-black flex items-center pt-24 pb-12">
-        {/* Hero Content */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black opacity-50" />
+      <section className="relative min-h-[calc(100svh-72px)] md:min-h-[92vh] w-full overflow-hidden bg-black flex items-center pt-[76px] md:pt-28 pb-3 md:pb-16">
+        {/* Hero Background Effects */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black opacity-60" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-[120px] pointer-events-none" />
+
         <div className="container mx-auto px-4 relative z-10">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-12">
-            <motion.div initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8 }} className="w-full md:w-1/2 text-center md:text-left order-2 md:order-1">
-              <h1 className="text-3xl md:text-6xl lg:text-7xl font-bold font-heading text-white mb-4 md:mb-6 tracking-tight leading-tight">Seu Estilo <br /> <span className="text-orange-500 italic">nossa marca.</span></h1>
-              <p className="text-base md:text-2xl text-gray-300 mb-6 md:mb-8 max-w-xl mx-auto md:mx-0 font-light leading-relaxed">Referência em barbearia clássica e moderna. Agende seu horário e viva essa experiência.</p>
-              <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center md:justify-start">
-                <Link href="/agendar" className="px-8 py-3 md:py-4 bg-orange-500 text-white font-bold rounded-xl text-lg hover:bg-orange-600 transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:scale-105 active:scale-95 text-center">Agendar horário</Link>
-                <Link href="/servicos" className="px-8 py-3 md:py-4 bg-transparent border border-white/20 text-white font-bold rounded-xl text-lg hover:bg-white/10 transition-all text-center">Ver Serviços</Link>
-              </div>
-            </motion.div>
-            <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="w-full md:w-[45%] lg:w-[42%] order-1 md:order-2">
-              <motion.div whileHover={{ scale: 1.02, rotateY: -5, rotateX: 3 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="relative aspect-[4/5] md:h-[700px] w-full rounded-[2rem] overflow-hidden shadow-[20px_20px_60px_rgba(0,0,0,0.8)] border border-white/10 group bg-zinc-900" style={{ perspective: 1000 }}>
-                <Image src="/assets/hero-banner.png" alt="Mauro Barber Agendamento" fill className="object-cover object-top transition-transform duration-700" priority />
-                <div className="absolute inset-0 border-2 border-orange-500/0 group-hover:border-orange-500/30 rounded-[2rem] transition-colors duration-500 pointer-events-none" />
+          <div className="flex flex-col md:flex-row items-center justify-between gap-2.5 md:gap-12">
+            
+            {/* Imagem do Hero (Aumentada no limite do mobile, 100% completa) */}
+            <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="w-full md:w-[45%] lg:w-[42%] order-1 md:order-2 flex justify-center">
+              <motion.div whileHover={{ scale: 1.02, rotateY: -3, rotateX: 2 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="relative aspect-[4/5] w-full max-w-[255px] xs:max-w-[275px] sm:max-w-[330px] md:max-w-none rounded-2xl md:rounded-[2.5rem] overflow-hidden shadow-[0_15px_40px_rgba(0,0,0,0.9)] border border-white/15 group bg-zinc-950" style={{ perspective: 1000 }}>
+                <Image 
+                  src="/assets/hero-banner.png" 
+                  alt="Mauro Barber Agendamento" 
+                  fill 
+                  className="object-contain md:object-cover object-center transition-transform duration-700" 
+                  priority 
+                />
+                <div className="absolute inset-0 border-2 border-orange-500/0 group-hover:border-orange-500/30 rounded-2xl md:rounded-[2.5rem] transition-colors duration-500 pointer-events-none" />
               </motion.div>
             </motion.div>
+
+            {/* Conteúdo de Texto e Botões */}
+            <motion.div initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8 }} className="w-full md:w-1/2 text-center md:text-left order-2 md:order-1">
+              
+              {/* Badges de Prova Social e Status */}
+              <div className="inline-flex flex-wrap items-center justify-center md:justify-start gap-1.5 mb-1.5 md:mb-5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] md:text-xs font-semibold backdrop-blur-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Horários Disponíveis Hoje
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] md:text-xs font-semibold backdrop-blur-md">
+                  ⭐ 4.9 • Referência
+                </span>
+              </div>
+
+              <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-6xl lg:text-7xl font-bold font-heading text-white mb-1 md:mb-5 tracking-tight leading-tight">
+                Seu Estilo <br className="hidden xs:inline" /> <span className="bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent italic">nossa marca.</span>
+              </h1>
+              
+              <p className="text-xs sm:text-sm md:text-xl text-zinc-300 mb-2.5 md:mb-8 max-w-xl mx-auto md:mx-0 font-light leading-relaxed">
+                Referência em barbearia clássica e visuais modernos. Agende seu horário em tempo real e viva uma experiência incomparável.
+              </p>
+              
+              {/* Botões: em mobile lado a lado (grid de 2 colunas) para economizar altura vertical */}
+              <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 md:gap-4 justify-center md:justify-start max-w-md mx-auto md:mx-0">
+                <Link 
+                  href="/agendar" 
+                  className="px-3 py-2.5 md:px-8 md:py-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold rounded-xl md:rounded-2xl text-xs sm:text-base md:text-lg shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:scale-105 active:scale-95 transition-all text-center flex items-center justify-center"
+                >
+                  Agendar Agora
+                </Link>
+                <Link 
+                  href="/servicos" 
+                  className="px-3 py-2.5 md:px-8 md:py-4 bg-white/5 border border-white/15 text-white font-semibold rounded-xl md:rounded-2xl text-xs sm:text-base md:text-lg hover:bg-white/10 hover:border-white/30 transition-all text-center backdrop-blur-md flex items-center justify-center"
+                >
+                  Ver Serviços
+                </Link>
+              </div>
+            </motion.div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Bar (Prova Social) */}
+      <section className="border-y border-white/10 bg-[#070707] py-8 relative">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div className="p-3">
+              <p className="text-3xl md:text-4xl font-extrabold text-white mb-1 tracking-tight">+500</p>
+              <p className="text-xs md:text-sm text-zinc-400 font-medium uppercase tracking-wider">Cortes Realizados</p>
+            </div>
+            <div className="p-3">
+              <p className="text-3xl md:text-4xl font-extrabold text-orange-400 mb-1 tracking-tight">4.9 ★</p>
+              <p className="text-xs md:text-sm text-zinc-400 font-medium uppercase tracking-wider">Avaliação Média</p>
+            </div>
+            <div className="p-3">
+              <p className="text-3xl md:text-4xl font-extrabold text-white mb-1 tracking-tight">1+ Anos</p>
+              <p className="text-xs md:text-sm text-zinc-400 font-medium uppercase tracking-wider">De Tradição</p>
+            </div>
+            <div className="p-3">
+              <p className="text-3xl md:text-4xl font-extrabold text-emerald-400 mb-1 tracking-tight">100%</p>
+              <p className="text-xs md:text-sm text-zinc-400 font-medium uppercase tracking-wider">Satisfação do Cliente</p>
+            </div>
           </div>
         </div>
       </section>
@@ -120,7 +186,7 @@ export default function Home() {
                                 <span className="text-xl font-bold text-orange-500">R$ {(Number(service.price) || 0).toFixed(2)}</span>
                             </div>
                             <p className="text-gray-400 mb-6">{service.duration || '30 min'}</p>
-                            <Link href="/agendar" className="inline-flex items-center gap-2 text-white font-bold hover:gap-4 transition-all">
+                            <Link href={`/agendar?serviceId=${service.id}`} className="inline-flex items-center gap-2 text-white font-bold hover:gap-4 transition-all">
                                 Agendar agora <span className="text-orange-500">→</span>
                             </Link>
                         </motion.div>
@@ -302,6 +368,52 @@ export default function Home() {
                 ))}
             </div>
          </div>
+      </section>
+
+      {/* Final Call to Action Section */}
+      <section className="py-20 md:py-28 bg-gradient-to-b from-black via-zinc-950 to-[#070707] relative overflow-hidden">
+        {/* Glow de fundo */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-orange-500/15 via-transparent to-transparent pointer-events-none" />
+        
+        <div className="container mx-auto px-4 relative z-10 text-center max-w-4xl">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="p-8 md:p-14 rounded-[2.5rem] bg-gradient-to-b from-zinc-900/90 to-black/90 border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.8)] backdrop-blur-xl relative"
+          >
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-bold uppercase tracking-wider mb-6">
+              Experiência VIP Mauro Barber
+            </span>
+
+            <h2 className="text-3xl md:text-5xl font-extrabold font-heading text-white mb-6 tracking-tight leading-tight">
+              Pronto para elevar o seu visual ao <span className="bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">próximo nível?</span>
+            </h2>
+
+            <p className="text-base md:text-xl text-zinc-300 mb-10 max-w-2xl mx-auto font-light leading-relaxed">
+              Não perca tempo em filas. Escolha seu barbeiro favorito, o serviço desejado e marque em tempo real pelo nosso sistema exclusivo.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link 
+                href="/agendar" 
+                className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold rounded-2xl text-lg shadow-[0_0_30px_rgba(249,115,22,0.45)] hover:shadow-[0_0_40px_rgba(249,115,22,0.7)] hover:scale-105 active:scale-95 transition-all text-center"
+              >
+                Agendar Meu Horário Agora
+              </Link>
+              
+              <a 
+                href="https://wa.me/557999914079" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="w-full sm:w-auto px-8 py-4 bg-white/5 border border-white/15 text-white font-semibold rounded-2xl text-lg hover:bg-white/10 hover:border-white/30 transition-all text-center"
+              >
+                Dúvidas no WhatsApp
+              </a>
+            </div>
+          </motion.div>
+        </div>
       </section>
     </div>
   );
