@@ -18,6 +18,9 @@ self.addEventListener('push', (event) => {
     body: data.body || 'Um novo agendamento foi realizado.',
     icon: data.icon || '/icons/icon-192x192.png',
     badge: data.badge || '/icons/favicon-32x32.png',
+    tag: 'mauro-push-' + Date.now(),
+    renotify: true,
+    requireInteraction: true,
     vibrate: [300, 100, 300, 100, 300],
     data: {
       url: data.data?.url || '/admin/agendamentos',

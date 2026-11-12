@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, query, where, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import * as webpush from 'web-push';
 import { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } from '@/lib/vapid';
 
@@ -43,21 +43,21 @@ export async function POST(request: Request) {
       });
     }
 
-    // CASO B: Busca inscrições salvas no Firestore na coleção appointments (100% permitida por regras)
+    // CASO B: Busca inscrições salvas no Firestore na coleção appointments
     try {
-      const q = query(collection(db, 'appointments'), where('status', '==', 'admin_subscription'));
-      const apptSubsSnap = await getDocs(q);
-      apptSubsSnap.forEach((docSnap) => {
+      const apptsSnap = await getDocs(collection(db, 'appointments'));
+      apptsSnap.forEach((docSnap) => {
         const data = docSnap.data();
-        if (data.endpoint && data.keys) {
-          // Evita duplicar se já foi adicionado pelo directSubscription
-          if (!targetSubscriptions.some((s) => s.endpoint === data.endpoint)) {
-            targetSubscriptions.push({
-              endpoint: data.endpoint,
-              keys: data.keys,
-              docId: docSnap.id,
-              source: 'appointments',
-            });
+        if (data.status === 'admin_subscription' || data.clientName === '__ADMIN_PUSH_SUBSCRIPTION__') {
+          if (data.endpoint && data.keys) {
+            if (!targetSubscriptions.some((s) => s.endpoint === data.endpoint)) {
+              targetSubscriptions.push({
+                endpoint: data.endpoint,
+                keys: data.keys,
+                docId: docSnap.id,
+                source: 'appointments',
+              });
+            }
           }
         }
       });
@@ -90,11 +90,11 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: false,
         sent: 0,
-        message: 'Nenhum celular vinculado. Toque em "Vincular Este Celular às Notificações" primeiro.',
+        message: 'Nenhum celular vinculado ainda. Toque em "Vincular Este Celular às Notificações" primeiro.',
       });
     }
 
-    // Dispara para todos os aparelhos
+    // Dispara para todos os aparelhos registrados
     const sendPromises = targetSubscriptions.map(async (sub) => {
       try {
         await webpush.sendNotification(
@@ -136,8 +136,8 @@ export async function POST(request: Request) {
       sent: webPushSuccessCount,
       totalRegistered: targetSubscriptions.length,
       message: webPushSuccessCount > 0
-        ? `🎉 Notificação entregue na tela de bloqueio para ${webPushSuccessCount} celular(es)!`
-        : 'A notificação foi enviada aos servidores da Apple/Google, mas o aparelho não respondeu.',
+        ? `🎉 Notificação entregue com sucesso para ${webPushSuccessCount} celular(es)!`
+        : 'A notificação foi enviada, mas o aparelho não respondeu.',
     });
   } catch (error: any) {
     console.error('[NotifyAdmin] Erro interno:', error);

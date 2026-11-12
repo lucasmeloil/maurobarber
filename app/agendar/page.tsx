@@ -224,11 +224,12 @@ function ScheduleForm() {
             }
         }
 
-        // Dispara o Push Remoto para o celular do Administrador (acorda o celular mesmo minimizado)
+        // Dispara o Push Remoto para o celular do Administrador (acorda o celular mesmo minimizado ou bloqueado)
         try {
-            fetch('/api/notifications/notify-admin', {
+            await fetch('/api/notifications/notify-admin', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
                 body: JSON.stringify({
                     clientName: formData.nome,
                     serviceName: serviceName,
@@ -236,9 +237,9 @@ function ScheduleForm() {
                     date: formattedDate,
                     barberName: barber ? barber.name : 'Qualquer Profissional'
                 })
-            }).catch(pushErr => console.log('[Push] Erro silencioso ao disparar notificação:', pushErr));
-        } catch (e) {
-            console.log('[Push] Disparo ignorado:', e);
+            });
+        } catch (pushErr) {
+            console.log('[Push] Erro ao disparar notificação:', pushErr);
         }
 
         // Construct WhatsApp message with appointment details including duration and end time
