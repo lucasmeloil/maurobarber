@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, getDoc, deleteDoc } from 'firebase/firestore';
-import webpush from 'web-push';
+import * as webpush from 'web-push';
 import { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } from '@/lib/vapid';
 
 // Configuração do VAPID para Web Push Nativo Universal (Google Chrome, Android, Apple iOS Safari)
