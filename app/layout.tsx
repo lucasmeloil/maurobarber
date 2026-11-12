@@ -17,10 +17,21 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Mauro Barber | Estilo e Precisão",
   description: "Referência em barbearia clássica e moderna. Agende seu horário e viva essa experiência.",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
-  themeColor: "#000000",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Mauro Barber",
+  },
   icons: {
-    icon: "/favicon-new.png", 
+    icon: [
+      { url: "/icons/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }
+    ],
   },
   openGraph: {
     title: "Mauro Barber",
@@ -30,6 +41,14 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     type: "website",
   }
+};
+
+export const viewport = {
+  themeColor: "#0a0a0a",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

@@ -6,6 +6,8 @@ import AdminSidebar from './components/AdminSidebar';
 import AdminNavbar from './components/AdminNavbar';
 import NotificationSystem from './components/NotificationSystem';
 import { useApp } from '../context/AppContext';
+import { db } from '@/lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function AdminLayout({
   children,
@@ -43,16 +45,27 @@ export default function AdminLayout({
                     const token = await getToken(messaging, { 
                         vapidKey: 'BlaykffShaRHseNc_3wG4IVr4Z4TGD3qoqEKbjTCXsqsxfFr_tnNtq8lvTRMeAwveCljP1d0v5Qced1b3D16QSE'
                     });
-                    console.log('FCM Token:', token);
-                    // Aqui você salvaria esse token no Firestore na coleção 'admin_tokens' para usar depois
+                    if (token && currentUser) {
+                        console.log('[FCM] Token de administrador obtido com sucesso:', token);
+                        await setDoc(doc(db, 'admin_fcm_tokens', token), {
+                            token,
+                            userId: currentUser.id || currentUser.email || 'admin',
+                            userEmail: currentUser.email || '',
+                            updatedAt: new Date().toISOString(),
+                            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : ''
+                        }, { merge: true });
+                    }
                 }
 
                 onMessage(messaging, (payload) => {
-                    console.log('Message received. ', payload);
-                    // Custom toast ou alerta visual aqui
-                    new Notification(payload.notification?.title || 'Novo Agendamento', {
-                        body: payload.notification?.body,
-                        icon: '/img/favicon-new.png'
+                    console.log('Mensagem FCM em primeiro plano recebida:', payload);
+                    const notifTitle = payload.notification?.title || payload.data?.title || 'Novo Agendamento Mauro Barber';
+                    const notifBody = payload.notification?.body || payload.data?.body || 'Um novo agendamento foi realizado.';
+                    
+                    new Notification(notifTitle, {
+                        body: notifBody,
+                        icon: '/icons/icon-192x192.png',
+                        badge: '/icons/favicon-32x32.png',
                     });
                 });
             }

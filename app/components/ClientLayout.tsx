@@ -5,6 +5,7 @@ import Navbar from "@/app/components/Navbar";
 import MobileMenu from "@/app/components/MobileMenu";
 import Footer from "@/app/components/Footer";
 import WhatsAppFloatingButton from "@/app/components/WhatsAppButton";
+import PWAInstallPrompt from "@/app/components/PWAInstallPrompt";
 import { AppProvider } from "@/app/context/AppContext";
 import { ToastProvider } from "@/app/context/ToastContext";
 
@@ -26,6 +27,7 @@ export default function ClientLayout({
             {!isAdmin && <Footer />}
             {!isAdmin && <WhatsAppFloatingButton />}
             {!isAdmin && <MobileMenu />}
+            <PWAInstallPrompt />
         </AppProvider>
     </ToastProvider>
   );

@@ -72,6 +72,22 @@ export default function NotificationSystem() {
       // Toca o alerta sonoro para o novo agendamento real
       audioRef.current?.play().catch(e => console.log('Audio play blocked by browser policy:', e));
 
+      // Dispara a Notificação Flutuante Nativa do Sistema Operacional (Mobile/Desktop)
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        newRealTimeApps.forEach(app => {
+          try {
+            new Notification('💈 Novo Agendamento Mauro Barber!', {
+              body: `${app.clientName} agendou para ${app.time} (${app.serviceName || 'Corte & Estilo'})`,
+              icon: '/icons/icon-192x192.png',
+              badge: '/icons/favicon-32x32.png',
+              tag: `mauro-app-${app.id}`
+            });
+          } catch (notifErr) {
+            console.log('Notificação nativa:', notifErr);
+          }
+        });
+      }
+
       const newNotifs: ActiveNotification[] = newRealTimeApps.map(app => {
         notifiedIdsRef.current.add(app.id);
         return {
