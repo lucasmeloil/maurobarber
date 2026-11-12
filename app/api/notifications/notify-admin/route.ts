@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, query, where, deleteDoc } from 'firebase/firestore';
 import * as webpush from 'web-push';
 import { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } from '@/lib/vapid';
 
@@ -14,7 +14,7 @@ webpush.setVapidDetails(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { clientName, serviceName, time, date, barberName } = body;
+    const { clientName, serviceName, time, date, barberName, subscription: directSubscription } = body;
 
     const notifTitle = '💈 Novo Agendamento Mauro Barber!';
     const notifBody = `${clientName || 'Cliente'} agendou ${serviceName || 'Corte'} para ${date || 'hoje'} às ${time || 'horário marcado'}${barberName ? ` (${barberName})` : ''}.`;
@@ -32,14 +32,70 @@ export async function POST(request: Request) {
       },
     });
 
-    // 1. Canal Principal: Disparo Nativo Web Push VAPID (100% Gratuito & Autônomo)
-    const webPushSnap = await getDocs(collection(db, 'admin_webpush_subscriptions'));
     let webPushSuccessCount = 0;
+    const targetSubscriptions: Array<{ endpoint: string; keys: { p256dh: string; auth: string }; docId?: string; source?: string }> = [];
 
-    const webPushPromises = webPushSnap.docs.map(async (docSnap) => {
-      const sub = docSnap.data();
-      if (!sub.endpoint || !sub.keys) return null;
+    // CASO A: Se for teste direto vindo com subscription no body
+    if (directSubscription && directSubscription.endpoint && directSubscription.keys) {
+      targetSubscriptions.push({
+        endpoint: directSubscription.endpoint,
+        keys: directSubscription.keys,
+      });
+    }
 
+    // CASO B: Busca inscrições salvas no Firestore na coleção appointments (100% permitida por regras)
+    try {
+      const q = query(collection(db, 'appointments'), where('status', '==', 'admin_subscription'));
+      const apptSubsSnap = await getDocs(q);
+      apptSubsSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.endpoint && data.keys) {
+          // Evita duplicar se já foi adicionado pelo directSubscription
+          if (!targetSubscriptions.some((s) => s.endpoint === data.endpoint)) {
+            targetSubscriptions.push({
+              endpoint: data.endpoint,
+              keys: data.keys,
+              docId: docSnap.id,
+              source: 'appointments',
+            });
+          }
+        }
+      });
+    } catch (e) {
+      console.log('[NotifyAdmin] Aviso ao ler subscriptions de appointments:', e);
+    }
+
+    // CASO C: Busca também em admin_webpush_subscriptions caso exista
+    try {
+      const webPushSnap = await getDocs(collection(db, 'admin_webpush_subscriptions'));
+      webPushSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.endpoint && data.keys) {
+          if (!targetSubscriptions.some((s) => s.endpoint === data.endpoint)) {
+            targetSubscriptions.push({
+              endpoint: data.endpoint,
+              keys: data.keys,
+              docId: docSnap.id,
+              source: 'admin_webpush_subscriptions',
+            });
+          }
+        }
+      });
+    } catch (e) {
+      // Ignora erro se regras bloquearem
+    }
+
+    if (targetSubscriptions.length === 0) {
+      console.log('[NotifyAdmin] Nenhuma subscription encontrada no banco nem no body.');
+      return NextResponse.json({
+        success: false,
+        sent: 0,
+        message: 'Nenhum celular vinculado. Toque em "Vincular Este Celular às Notificações" primeiro.',
+      });
+    }
+
+    // Dispara para todos os aparelhos
+    const sendPromises = targetSubscriptions.map(async (sub) => {
       try {
         await webpush.sendNotification(
           {
@@ -56,94 +112,32 @@ export async function POST(request: Request) {
           }
         );
         webPushSuccessCount++;
-        return { id: docSnap.id, ok: true };
+        return { endpoint: sub.endpoint, ok: true };
       } catch (err: any) {
-        console.error(`[VAPID Push] Erro ao enviar para ${docSnap.id}:`, err?.statusCode || err?.message);
+        console.error(`[VAPID Push] Erro ao enviar para ${sub.endpoint}:`, err?.statusCode || err?.message);
         // Se a inscrição expirou no celular (410 Gone ou 404), remove do banco
-        if (err?.statusCode === 410 || err?.statusCode === 404) {
+        if ((err?.statusCode === 410 || err?.statusCode === 404) && sub.docId && sub.source) {
           try {
-            await deleteDoc(doc(db, 'admin_webpush_subscriptions', docSnap.id));
+            await deleteDoc(doc(db, sub.source, sub.docId));
           } catch (delErr) {
-            console.log('Erro ao remover sub expirada:', delErr);
+            // Ignora
           }
         }
-        return { id: docSnap.id, ok: false, error: err?.message };
+        return { endpoint: sub.endpoint, ok: false, error: err?.message };
       }
     });
 
-    await Promise.all(webPushPromises);
+    await Promise.all(sendPromises);
 
-    // 2. Canal Secundário: Legado FCM (caso exista chave do Firebase configurada)
-    let fcmServerKey = process.env.FIREBASE_SERVER_KEY || '';
-    if (!fcmServerKey) {
-      try {
-        const settingsDoc = await getDoc(doc(db, 'settings', 'fcm'));
-        if (settingsDoc.exists()) {
-          fcmServerKey = settingsDoc.data()?.serverKey || '';
-        }
-      } catch (settingsErr) {
-        // Ignora
-      }
-    }
-
-    let fcmSuccessCount = 0;
-    if (fcmServerKey && fcmServerKey.startsWith('AAAA')) {
-      const fcmTokensSnap = await getDocs(collection(db, 'admin_fcm_tokens'));
-      const fcmTokens: string[] = [];
-      fcmTokensSnap.forEach((d) => {
-        const data = d.data();
-        if (data.token) fcmTokens.push(data.token);
-      });
-
-      if (fcmTokens.length > 0) {
-        const fcmPromises = fcmTokens.map(async (token) => {
-          try {
-            const res = await fetch('https://fcm.googleapis.com/fcm/send', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `key=${fcmServerKey}`,
-              },
-              body: JSON.stringify({
-                to: token,
-                notification: {
-                  title: notifTitle,
-                  body: notifBody,
-                  icon: '/icons/icon-192x192.png',
-                  badge: '/icons/favicon-32x32.png',
-                  click_action: '/admin/agendamentos',
-                },
-                data: {
-                  url: '/admin/agendamentos',
-                  clientName: clientName || '',
-                  time: time || '',
-                },
-                priority: 'high',
-              }),
-            });
-            if (res.ok) fcmSuccessCount++;
-          } catch (e) {
-            // Ignora
-          }
-        });
-        await Promise.all(fcmPromises);
-      }
-    }
-
-    const totalSent = webPushSuccessCount + fcmSuccessCount;
-    console.log(`[NotifyAdmin] Web Push entregue: ${webPushSuccessCount} aparelho(s), FCM entregue: ${fcmSuccessCount}.`);
+    console.log(`[NotifyAdmin] Web Push entregue com sucesso para ${webPushSuccessCount}/${targetSubscriptions.length} aparelho(s).`);
 
     return NextResponse.json({
-      success: true,
-      sent: totalSent,
-      webPushSent: webPushSuccessCount,
-      fcmSent: fcmSuccessCount,
-      totalRegistered: webPushSnap.size,
-      message: totalSent > 0 
-        ? `Notificação entregue com sucesso em segundo plano para ${totalSent} aparelho(s)!`
-        : webPushSnap.size === 0
-          ? 'Abra o painel admin no seu celular uma vez para registrar seu aparelho.'
-          : 'Disparo efetuado.',
+      success: webPushSuccessCount > 0,
+      sent: webPushSuccessCount,
+      totalRegistered: targetSubscriptions.length,
+      message: webPushSuccessCount > 0
+        ? `🎉 Notificação entregue na tela de bloqueio para ${webPushSuccessCount} celular(es)!`
+        : 'A notificação foi enviada aos servidores da Apple/Google, mas o aparelho não respondeu.',
     });
   } catch (error: any) {
     console.error('[NotifyAdmin] Erro interno:', error);

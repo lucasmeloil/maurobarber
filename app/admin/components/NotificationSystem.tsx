@@ -19,19 +19,25 @@ export default function NotificationSystem() {
   const { appointments, updateAppointmentStatus } = useApp();
   const [notifications, setNotifications] = useState<ActiveNotification[]>([]);
   const prevAppointmentsRef = useRef(appointments);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const isInitialSyncRef = useRef(true);
   const notifiedIdsRef = useRef<Set<string>>(new Set());
 
-  // Inicializa o áudio de notificação de forma segura
-  useEffect(() => {
+  // Toca o som sem ativar o widget de música do iOS na tela de bloqueio
+  const playAlertSound = () => {
     try {
-      audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-      audioRef.current.volume = 0.5;
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.volume = 0.5;
+      audio.play().then(() => {
+        setTimeout(() => {
+          audio.pause();
+          audio.removeAttribute('src');
+          audio.load();
+        }, 1800);
+      }).catch(e => console.log('Audio play blocked:', e));
     } catch (e) {
-      console.log('Audio init warning:', e);
+      console.log('Audio warning:', e);
     }
-  }, []);
+  };
 
   // Monitora novos agendamentos em tempo real sem disparar o histórico ao recarregar a página
   useEffect(() => {
@@ -69,8 +75,8 @@ export default function NotificationSystem() {
     });
 
     if (newRealTimeApps.length > 0) {
-      // Toca o alerta sonoro para o novo agendamento real
-      audioRef.current?.play().catch(e => console.log('Audio play blocked by browser policy:', e));
+      // Toca o alerta sonoro para o novo agendamento real sem prender o player do iOS
+      playAlertSound();
 
       // Dispara a Notificação Flutuante Nativa do Sistema Operacional (Mobile/Desktop)
       if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {

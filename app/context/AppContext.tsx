@@ -161,7 +161,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const appts: Appointment[] = [];
       snapshot.forEach((doc) => {
-        appts.push({ id: doc.id, ...doc.data() } as Appointment);
+        const data = doc.data();
+        if (data.status !== 'admin_subscription' && data.clientName !== '__ADMIN_PUSH_SUBSCRIPTION__') {
+          appts.push({ id: doc.id, ...data } as Appointment);
+        }
       });
       console.log("Agendamentos carregados:", appts.length);
       setAppointments(appts);

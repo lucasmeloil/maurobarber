@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { Bell, Shield, Smartphone, CheckCircle, AlertTriangle, Send, RefreshCw, Zap, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/vapid';
@@ -15,7 +15,7 @@ export default function AdminSettingsPage() {
   const [testSending, setTestSending] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const [registeredSubscriptions, setRegisteredSubscriptions] = useState<any[]>([]);
+  const [registeredCount, setRegisteredCount] = useState(0);
   const [isCurrentDeviceRegistered, setIsCurrentDeviceRegistered] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
 
@@ -28,14 +28,12 @@ export default function AdminSettingsPage() {
         setIsIOS(/iphone|ipad|ipod/.test(ua));
       }
 
-      const subsSnap = await getDocs(collection(db, 'admin_webpush_subscriptions'));
-      const list: any[] = [];
-      subsSnap.forEach((d) => {
-        list.push({ id: d.id, ...d.data() });
-      });
-      setRegisteredSubscriptions(list);
+      // 1. Busca contagem de aparelhos cadastrados em appointments (status=admin_subscription)
+      const q = query(collection(db, 'appointments'), where('status', '==', 'admin_subscription'));
+      const snap = await getDocs(q);
+      setRegisteredCount(snap.size);
 
-      // Checa se o aparelho atual já tem inscrição ativa no navegador
+      // 2. Checa se o aparelho atual já tem inscrição ativa no navegador
       if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
@@ -64,14 +62,14 @@ export default function AdminSettingsPage() {
 
       if (!('PushManager' in window)) {
         if (isIOS) {
-          throw new Error('No iPhone, para receber notificações na tela de bloqueio, você precisa adicionar este app à sua Tela de Início (toque em Compartilhar > Adicionar à Tela de Início).');
+          throw new Error('No iPhone, para receber notificações na tela de bloqueio, você precisa adicionar este app à sua Tela de Início (toque em Compartilhar > Adicionar à Tela de Início) e abrir por lá.');
         }
         throw new Error('Push Manager não suportado neste navegador.');
       }
 
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        throw new Error('Permissão negada. Ative as notificações nas configurações do seu navegador ou aparelho.');
+        throw new Error('Permissão negada. Ative as notificações nas configurações do seu iPhone em Ajustes > Safari ou Notificações.');
       }
 
       const registration = await navigator.serviceWorker.ready;
@@ -85,21 +83,25 @@ export default function AdminSettingsPage() {
       }
 
       if (subscription) {
-        const subJson = subscription.toJSON();
-        const subKey = btoa(subscription.endpoint).slice(-40).replace(/[^a-zA-Z0-9]/g, '_');
+        // Envia para o backend salvar no banco
+        const res = await fetch('/api/notifications/register-device', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscription: subscription.toJSON(),
+            userEmail: currentUser?.email || 'admin@maurobarber.com.br',
+            userId: currentUser?.id || 'admin',
+          }),
+        });
 
-        await setDoc(doc(db, 'admin_webpush_subscriptions', subKey), {
-          endpoint: subJson.endpoint,
-          keys: subJson.keys,
-          userId: currentUser?.id || currentUser?.email || 'admin',
-          userEmail: currentUser?.email || 'admin@maurobarber.com.br',
-          updatedAt: new Date().toISOString(),
-          userAgent: navigator.userAgent,
-        }, { merge: true });
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Erro ao registrar no banco de dados.');
+        }
 
         setIsCurrentDeviceRegistered(true);
         setStatusMessage({
-          text: '✅ Aparelho vinculado com sucesso! Agora você receberá notificações mesmo com a tela bloqueada.',
+          text: '✅ Este celular foi vinculado com sucesso! Agora toque em "Testar Notificação" para testar.',
           type: 'success',
         });
         await loadData();
@@ -137,6 +139,16 @@ export default function AdminSettingsPage() {
 
   const triggerPush = async () => {
     try {
+      // Pega a inscrição do navegador atual para envio direto e garantido
+      let directSub = null;
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          directSub = sub.toJSON();
+        }
+      }
+
       const res = await fetch('/api/notifications/notify-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,8 +158,10 @@ export default function AdminSettingsPage() {
           time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           date: 'Hoje',
           barberName: 'Mauro Barber',
+          subscription: directSub,
         }),
       });
+
       const data = await res.json();
       if (data.success && data.sent > 0) {
         setStatusMessage({
@@ -290,32 +304,8 @@ export default function AdminSettingsPage() {
             <h2 className="text-sm sm:text-base font-bold text-white">Aparelhos Conectados</h2>
           </div>
           <span className="text-[11px] font-semibold text-[#d4af37] px-2.5 py-0.5 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/20">
-            {registeredSubscriptions.length} celular(es)
+            {registeredCount} celular(es)
           </span>
-        </div>
-
-        <div className="divide-y divide-white/5 pt-1">
-          {registeredSubscriptions.length === 0 ? (
-            <div className="py-6 text-center text-xs text-zinc-500">
-              Nenhum celular conectado. Toque em <strong>"Vincular Este Celular às Notificações"</strong> acima para registrar.
-            </div>
-          ) : (
-            registeredSubscriptions.map((sub, idx) => (
-              <div key={sub.id || idx} className="py-2.5 flex items-center justify-between gap-3 text-xs">
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-white truncate text-xs">
-                    {sub.userEmail || 'Celular do Gestor'}
-                  </div>
-                  <div className="text-zinc-500 truncate text-[10px] mt-0.5">
-                    Vinculado em: {sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString('pt-BR') : 'Hoje'}
-                  </div>
-                </div>
-                <span className="text-[10px] text-emerald-400 font-medium px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0">
-                  Pronto
-                </span>
-              </div>
-            ))
-          )}
         </div>
       </div>
     </div>
