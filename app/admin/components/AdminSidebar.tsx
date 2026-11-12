@@ -98,7 +98,9 @@ export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps)
     </motion.aside>
   );
 
-  // Mobile Bottom Navigation
+  // Mobile Bottom Navigation (Item "Equipe" retirado no mobile para dar mais espaço)
+  const mobileMenuItems = menuItems.filter((item) => item.path !== '/admin/equipe');
+
   return (
     <>
       {DesktopSidebar}
@@ -106,22 +108,22 @@ export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps)
       {/* spacer for bottom nav */}
       <div className="md:hidden h-20" />
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#050505] border-t border-white/10 z-50 flex items-center justify-around px-2 pb-safe">
-        {menuItems.map((item) => {
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#050505]/95 backdrop-blur-lg border-t border-white/10 z-50 flex items-center justify-around px-1 pb-safe">
+        {mobileMenuItems.map((item) => {
             const isActive = pathname === item.path;
             return (
             <Link 
                 key={item.path} 
                 href={item.path}
                 className={clsx(
-                    "flex flex-col items-center justify-center p-2 rounded-xl transition-all relative w-16",
-                    isActive ? "text-white" : "text-gray-500 hover:text-gray-300"
+                    "flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative flex-1 min-w-0",
+                    isActive ? "text-[#d4af37]" : "text-gray-400 hover:text-gray-200"
                 )}
             >
-                <item.icon size={20} className={clsx(isActive && "text-white")} />
-                <span className="text-[10px] mt-1 font-medium">{item.label}</span>
+                <item.icon size={19} className={clsx(isActive ? "text-[#d4af37]" : "text-gray-400")} />
+                <span className="text-[10px] mt-0.5 font-medium truncate max-w-full">{item.label}</span>
                 {item.path === '/admin/agendamentos' && unreadNotifications > 0 && (
-                    <span className="absolute top-1 right-3 w-2 h-2 bg-red-500 rounded-full" />
+                    <span className="absolute top-1 right-2 w-2 h-2 bg-red-500 rounded-full" />
                 )}
             </Link>
             )
@@ -130,10 +132,10 @@ export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps)
         {/* Logout Button Mobile */}
         <button 
             onClick={logout}
-            className="flex flex-col items-center justify-center p-2 text-gray-500 hover:text-red-400 w-16"
+            className="flex flex-col items-center justify-center py-1.5 px-1 text-gray-400 hover:text-red-400 flex-1 min-w-0"
         >
-            <LogOut size={20} />
-            <span className="text-[10px] mt-1 font-medium">Sair</span>
+            <LogOut size={19} />
+            <span className="text-[10px] mt-0.5 font-medium">Sair</span>
         </button>
       </div>
     </>

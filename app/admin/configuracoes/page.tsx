@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
-import { Settings, Bell, Shield, Smartphone, Key, CheckCircle, AlertTriangle, Send, RefreshCw, Zap } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { Bell, Shield, Smartphone, CheckCircle, AlertTriangle, Send, RefreshCw, Zap, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/vapid';
 import { useApp } from '@/app/context/AppContext';
 
@@ -13,19 +13,34 @@ export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [testSending, setTestSending] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [registeredSubscriptions, setRegisteredSubscriptions] = useState<any[]>([]);
+  const [isCurrentDeviceRegistered, setIsCurrentDeviceRegistered] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
-  // Carrega dispositivos cadastrados no Firestore
+  // Carrega dispositivos cadastrados do Firestore
   const loadData = async () => {
     setLoading(true);
     try {
+      if (typeof window !== 'undefined') {
+        const ua = navigator.userAgent.toLowerCase();
+        setIsIOS(/iphone|ipad|ipod/.test(ua));
+      }
+
       const subsSnap = await getDocs(collection(db, 'admin_webpush_subscriptions'));
       const list: any[] = [];
       subsSnap.forEach((d) => {
         list.push({ id: d.id, ...d.data() });
       });
       setRegisteredSubscriptions(list);
+
+      // Checa se o aparelho atual já tem inscrição ativa no navegador
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        setIsCurrentDeviceRegistered(!!sub);
+      }
     } catch (err: any) {
       console.error('Erro ao carregar configurações:', err);
     } finally {
@@ -37,19 +52,26 @@ export default function AdminSettingsPage() {
     loadData();
   }, []);
 
-  // Ativa e inscreve o aparelho atual no Web Push Nativo VAPID
+  // Vincula o celular atual ao Web Push Nativo VAPID
   const handleRegisterThisDevice = async () => {
     setRegistering(true);
     setStatusMessage(null);
 
     try {
       if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
-        throw new Error('Seu navegador não suporta Service Worker.');
+        throw new Error('Seu navegador não suporta notificações em segundo plano.');
+      }
+
+      if (!('PushManager' in window)) {
+        if (isIOS) {
+          throw new Error('No iPhone, para receber notificações na tela de bloqueio, você precisa adicionar este app à sua Tela de Início (toque em Compartilhar > Adicionar à Tela de Início).');
+        }
+        throw new Error('Push Manager não suportado neste navegador.');
       }
 
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        throw new Error('Permissão de notificação negada pelo navegador. Ative nas permissões do site.');
+        throw new Error('Permissão negada. Ative as notificações nas configurações do seu navegador ou aparelho.');
       }
 
       const registration = await navigator.serviceWorker.ready;
@@ -75,15 +97,16 @@ export default function AdminSettingsPage() {
           userAgent: navigator.userAgent,
         }, { merge: true });
 
+        setIsCurrentDeviceRegistered(true);
         setStatusMessage({
-          text: '✅ Este aparelho foi inscrito com sucesso! Ele agora receberá alertas com a tela bloqueada ou app minimizado.',
+          text: '✅ Aparelho vinculado com sucesso! Agora você receberá notificações mesmo com a tela bloqueada.',
           type: 'success',
         });
         await loadData();
       }
     } catch (err: any) {
       setStatusMessage({
-        text: `Erro ao inscrever aparelho: ${err.message}`,
+        text: err.message || 'Erro ao vincular aparelho.',
         type: 'error',
       });
     } finally {
@@ -91,30 +114,49 @@ export default function AdminSettingsPage() {
     }
   };
 
+  // Teste de notificação com contagem regressiva para dar tempo de bloquear o celular
   const handleTestNotification = async () => {
     setTestSending(true);
-    setStatusMessage(null);
+    setStatusMessage({
+      text: '⏳ Preparando envio em 3 segundos... Bloqueie a tela do celular agora para testar!',
+      type: 'info',
+    });
+    setCountdown(3);
+
+    const timer = setInterval(async () => {
+      setCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          triggerPush();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const triggerPush = async () => {
     try {
       const res = await fetch('/api/notifications/notify-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientName: 'Teste Mauro Barber',
-          serviceName: 'Corte Degrade Premium',
+          clientName: 'Teste de Agendamento',
+          serviceName: 'Corte Degradê & Barba',
           time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           date: 'Hoje',
-          barberName: 'Admin',
+          barberName: 'Mauro Barber',
         }),
       });
       const data = await res.json();
       if (data.success && data.sent > 0) {
         setStatusMessage({
-          text: `🎉 Notificação disparada com sucesso para ${data.sent} aparelho(s)! Bloqueie a tela ou minimize para testar.`,
+          text: `🎉 Notificação disparada com sucesso para ${data.sent} aparelho(s)!`,
           type: 'success',
         });
       } else {
         setStatusMessage({
-          text: data.message || 'Nenhum aparelho conectado. Clique no botão "Ativar Este Aparelho Agora" primeiro.',
+          text: data.message || 'Nenhum celular vinculado. Toque em "Vincular Este Celular" primeiro.',
           type: 'error',
         });
       }
@@ -129,128 +171,147 @@ export default function AdminSettingsPage() {
   };
 
   return (
-    <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+    <div className="p-4 sm:p-6 md:p-10 max-w-3xl mx-auto space-y-6 pb-24 md:pb-12 text-white">
+      {/* Header Responsivo */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
         <div>
-          <div className="flex items-center gap-2 text-[#d4af37] text-sm font-semibold mb-1">
-            <Zap className="w-4 h-4" />
-            WEB PUSH NATIVO (100% GRATUITO)
+          <div className="flex items-center gap-1.5 text-[#d4af37] text-xs font-semibold uppercase tracking-wider mb-1">
+            <Zap className="w-3.5 h-3.5" />
+            Notificações em Segundo Plano
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold font-heading text-white">
-            Notificações em Segundo Plano & Tela de Bloqueio
+          <h1 className="text-xl sm:text-2xl font-bold font-heading text-white">
+            Tela de Bloqueio & Alertas
           </h1>
-          <p className="text-zinc-400 text-sm mt-1">
-            Receba notificações flutuantes instantâneas no seu celular mesmo com a tela apagada ou app minimizado.
+          <p className="text-zinc-400 text-xs sm:text-sm mt-0.5">
+            Receba notificações flutuantes mesmo com o celular no bolso ou app fechado.
           </p>
         </div>
         <button
           onClick={loadData}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs transition-colors self-start cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs transition-colors self-start cursor-pointer border border-white/10"
         >
-          <RefreshCw className="w-3.5 h-3.5" />
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </button>
       </div>
 
-      {statusMessage && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`p-4 rounded-2xl flex items-center gap-3 text-sm border ${
-            statusMessage.type === 'success'
-              ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
-              : 'bg-red-950/40 border-red-500/30 text-red-300'
-          }`}
-        >
-          {statusMessage.type === 'success' ? (
-            <CheckCircle className="w-5 h-5 flex-shrink-0" />
-          ) : (
-            <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-          )}
-          <span>{statusMessage.text}</span>
-        </motion.div>
-      )}
+      {/* Alerta de Status */}
+      <AnimatePresence>
+        {statusMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className={`p-3.5 rounded-2xl flex items-start gap-2.5 text-xs sm:text-sm border leading-relaxed ${
+              statusMessage.type === 'success'
+                ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
+                : statusMessage.type === 'info'
+                ? 'bg-blue-950/50 border-blue-500/40 text-blue-300'
+                : 'bg-red-950/50 border-red-500/40 text-red-300'
+            }`}
+          >
+            {statusMessage.type === 'success' && <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+            {statusMessage.type === 'info' && <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+            {statusMessage.type === 'error' && <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+            <span className="flex-1">{statusMessage.text}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Card 1: Ação Rápida de Inscrição e Teste */}
-      <div className="bg-[#111116] border border-[#d4af37]/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-xl relative overflow-hidden">
-        <div className="flex items-start gap-4">
-          <div className="p-3.5 rounded-2xl bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/30">
-            <Bell className="w-6 h-6" />
+      {/* Card Principal: Ativação e Teste */}
+      <div className="bg-[#111116] border border-[#d4af37]/30 rounded-2xl sm:rounded-3xl p-5 sm:p-7 space-y-5 shadow-xl relative overflow-hidden">
+        <div className="flex items-start gap-3.5">
+          <div className="p-3 rounded-xl sm:rounded-2xl bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/30 flex-shrink-0">
+            <Bell className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div className="flex-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-1.5">
-              Protocolo VAPID Ativo
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="text-xs font-bold text-white uppercase tracking-wider">Status do seu aparelho:</span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  isCurrentDeviceRegistered
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                }`}
+              >
+                {isCurrentDeviceRegistered ? 'Conectado à Tela de Bloqueio' : 'Não Vinculado'}
+              </span>
             </div>
-            <h2 className="text-lg font-bold text-white">Ativar Notificações no seu Celular</h2>
-            <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
-              Clique no botão abaixo pelo celular do gestor para vincular o aparelho à central de agendamentos. Quando qualquer cliente agendar, seu telefone acenderá e vibrará na mesma hora.
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              {isCurrentDeviceRegistered
+                ? 'Este celular está configurado! Quando um cliente agendar, ele acenderá a tela e vibrará no seu bolso.'
+                : 'Toque no botão dourado abaixo para vincular este celular à central de agendamentos.'}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+        {/* Botões de Ação */}
+        <div className="flex flex-col gap-2.5 pt-1">
           <button
             onClick={handleRegisterThisDevice}
             disabled={registering}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa771c] hover:from-[#e5c055] hover:to-[#be8922] text-black font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa771c] hover:from-[#e5c055] hover:to-[#be8922] text-black font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <Smartphone className="w-4 h-4" />
-            {registering ? 'Inscrevendo Celular...' : 'Ativar Este Aparelho Agora'}
+            {registering ? 'Vinculando Aparelho...' : 'Vincular Este Celular às Notificações'}
           </button>
 
           <button
             type="button"
             onClick={handleTestNotification}
             disabled={testSending}
-            className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer border border-white/10"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer border border-white/10"
           >
             <Send className="w-4 h-4 text-[#d4af37]" />
-            {testSending ? 'Disparando Teste...' : 'Testar Notificação (Bloqueie a Tela)'}
+            {testSending && countdown !== null
+              ? `Bloqueie a tela! Enviando em ${countdown}s...`
+              : 'Testar Notificação (Bloqueie a Tela)'}
           </button>
         </div>
+
+        {/* Dica iPhone */}
+        {isIOS && (
+          <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 text-[11px] text-zinc-400 space-y-1">
+            <div className="font-semibold text-[#f8e7b3] flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5 text-[#d4af37]" /> Dica Importante para iPhone:
+            </div>
+            <p className="leading-relaxed">
+              No iOS, a Apple exige que o app esteja adicionado à <strong>Tela de Início</strong> para receber alertas com a tela bloqueada. Se ainda não adicionou, toque no botão Compartilhar do Safari e em <em>"Adicionar à Tela de Início"</em>.
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Card 2: Aparelhos Ativos Conectados */}
-      <div className="bg-[#111116] border border-white/10 rounded-3xl p-6 md:p-8 space-y-4 shadow-xl">
+      {/* Card de Dispositivos Conectados */}
+      <div className="bg-[#111116] border border-white/10 rounded-2xl sm:rounded-3xl p-5 sm:p-6 space-y-3 shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-white/5 text-zinc-300 border border-white/5">
-              <Shield className="w-6 h-6 text-[#d4af37]" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">Celulares do Gestor Conectados</h2>
-              <p className="text-xs text-zinc-400">
-                Dispositivos habilitados para receber alertas mesmo com a tela apagada.
-              </p>
-            </div>
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-[#d4af37]" />
+            <h2 className="text-sm sm:text-base font-bold text-white">Aparelhos Conectados</h2>
           </div>
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/30">
-            {registeredSubscriptions.length} conectado(s)
+          <span className="text-[11px] font-semibold text-[#d4af37] px-2.5 py-0.5 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/20">
+            {registeredSubscriptions.length} celular(es)
           </span>
         </div>
 
-        <div className="divide-y divide-white/5 pt-2">
+        <div className="divide-y divide-white/5 pt-1">
           {registeredSubscriptions.length === 0 ? (
-            <div className="py-8 text-center text-xs text-zinc-400 space-y-2">
-              <p>Nenhum aparelho conectado ainda.</p>
-              <p className="text-zinc-500 text-[11px]">
-                Abra este painel no seu celular e clique no botão dourado <strong>"Ativar Este Aparelho Agora"</strong> acima.
-              </p>
+            <div className="py-6 text-center text-xs text-zinc-500">
+              Nenhum celular conectado. Toque em <strong>"Vincular Este Celular às Notificações"</strong> acima para registrar.
             </div>
           ) : (
             registeredSubscriptions.map((sub, idx) => (
-              <div key={sub.id || idx} className="py-3 flex items-center justify-between gap-4 text-xs">
-                <div className="min-w-0">
-                  <div className="font-semibold text-white truncate">
-                    {sub.userEmail || sub.userId || 'Celular do Gestor'}
+              <div key={sub.id || idx} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-white truncate text-xs">
+                    {sub.userEmail || 'Celular do Gestor'}
                   </div>
-                  <div className="text-zinc-500 truncate text-[11px] mt-0.5">
-                    Atualizado em: {sub.updatedAt ? new Date(sub.updatedAt).toLocaleString('pt-BR') : 'Recentemente'}
+                  <div className="text-zinc-500 truncate text-[10px] mt-0.5">
+                    Vinculado em: {sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString('pt-BR') : 'Hoje'}
                   </div>
                 </div>
                 <span className="text-[10px] text-emerald-400 font-medium px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0">
-                  Conectado à Tela de Bloqueio
+                  Pronto
                 </span>
               </div>
             ))
