@@ -1,25 +1,46 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Se o gestor já estiver logado no celular/desktop, redireciona direto para o painel de agendamentos
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.push('/admin/agendamentos');
+      } else {
+        setCheckingAuth(false);
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
         await signInWithEmailAndPassword(auth, email, password);
-        router.push('/admin');
+        router.push('/admin/agendamentos');
     } catch (error) {
         alert('Erro ao fazer login. Verifique suas credenciais.');
         console.error(error);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#d4af37]" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 bg-gray-50">

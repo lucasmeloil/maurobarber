@@ -224,6 +224,23 @@ function ScheduleForm() {
             }
         }
 
+        // Dispara o Push Remoto para o celular do Administrador (acorda o celular mesmo minimizado)
+        try {
+            fetch('/api/notifications/notify-admin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientName: formData.nome,
+                    serviceName: serviceName,
+                    time: formData.hora,
+                    date: formattedDate,
+                    barberName: barber ? barber.name : 'Qualquer Profissional'
+                })
+            }).catch(pushErr => console.log('[Push] Erro silencioso ao disparar notificação:', pushErr));
+        } catch (e) {
+            console.log('[Push] Disparo ignorado:', e);
+        }
+
         // Construct WhatsApp message with appointment details including duration and end time
         const message = `Olá! Gostaria de confirmar meu agendamento:\n\n` +
             `*Cliente:* ${formData.nome}\n` +

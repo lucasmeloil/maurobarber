@@ -1,0 +1,65 @@
+{
+  "name": "Mauro Barber - Gestão",
+  "short_name": "Mauro Gestão",
+  "description": "Painel exclusivo de gestão e agendamentos em tempo real Mauro Barber.",
+  "start_url": "/login",
+  "id": "/login",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Agendamentos em Tempo Real",
+      "short_name": "Agendamentos",
+      "description": "Acompanhe e gerencie horários",
+      "url": "/admin/agendamentos",
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Painel Financeiro",
+      "short_name": "Financeiro",
+      "description": "Faturamento e despesas",
+      "url": "/admin/financeiro",
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
+

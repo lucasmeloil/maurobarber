@@ -47,19 +47,6 @@
           "sizes": "192x192"
         }
       ]
-    },
-    {
-      "name": "Painel Mauro Barber",
-      "short_name": "Admin",
-      "description": "Acesso para equipe e gestão",
-      "url": "/admin",
-      "icons": [
-        {
-          "src": "/icons/icon-192x192.png",
-          "sizes": "192x192"
-        }
-      ]
     }
   ]
 }
-

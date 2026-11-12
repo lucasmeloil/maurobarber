@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, X, Share2, PlusSquare, Smartphone } from 'lucide-react';
+import { Download, X, Share2, PlusSquare, Smartphone, ShieldCheck } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,11 +12,27 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function PWAInstallPrompt() {
+  const pathname = usePathname();
+  const isAdminRoute = pathname === '/login' || pathname.startsWith('/admin');
+
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+
+  // Sincroniza dinamicamente o manifesto correto conforme a rota (Admin vs Cliente)
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
+      if (!manifestLink) {
+        manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        document.head.appendChild(manifestLink);
+      }
+      manifestLink.href = isAdminRoute ? '/manifest-admin.json' : '/manifest.json';
+    }
+  }, [isAdminRoute]);
 
   useEffect(() => {
     // 1. Registra o Service Worker globalmente para habilitar o PWA e o Web Push
@@ -41,8 +58,9 @@ export default function PWAInstallPrompt() {
       return; // Já está no modo App, não mostra aviso
     }
 
-    // 3. Verifica se o usuário já dispensou hoje
-    const dismissedUntil = localStorage.getItem('maurobarber_pwa_dismissed');
+    // 3. Verifica se o usuário já dispensou recentemente
+    const dismissKey = isAdminRoute ? 'maurobarber_admin_pwa_dismissed' : 'maurobarber_pwa_dismissed';
+    const dismissedUntil = localStorage.getItem(dismissKey);
     if (dismissedUntil && Date.now() < Number(dismissedUntil)) {
       return;
     }
@@ -61,7 +79,7 @@ export default function PWAInstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
 
-    // No iOS, se não estiver instalado e não foi dispensado, exibe após 3 segundos
+    // No iOS, se não estiver instalado e não foi dispensado, exibe após 3.5 segundos
     if (isIosDevice && !isStandaloneMode) {
       const timer = setTimeout(() => {
         setIsVisible(true);
@@ -72,7 +90,7 @@ export default function PWAInstallPrompt() {
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
-  }, []);
+  }, [isAdminRoute]);
 
   const handleInstallClick = async () => {
     if (isIOS) {
@@ -94,9 +112,9 @@ export default function PWAInstallPrompt() {
   const handleDismiss = () => {
     setIsVisible(false);
     setShowIOSGuide(false);
-    // Não incomoda novamente pelas próximas 48 horas
-    const expires = Date.now() + 48 * 60 * 60 * 1000;
-    localStorage.setItem('maurobarber_pwa_dismissed', String(expires));
+    const dismissKey = isAdminRoute ? 'maurobarber_admin_pwa_dismissed' : 'maurobarber_pwa_dismissed';
+    const expires = Date.now() + 24 * 60 * 60 * 1000;
+    localStorage.setItem(dismissKey, String(expires));
   };
 
   if (isStandalone || !isVisible) {
@@ -128,19 +146,24 @@ export default function PWAInstallPrompt() {
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-sm text-[#f8e7b3] tracking-wide">
-                    Instalar App Mauro Barber
-                  </h4>
+                  <div className="flex items-center gap-1.5">
+                    {isAdminRoute && <ShieldCheck className="w-4 h-4 text-[#d4af37]" />}
+                    <h4 className="font-semibold text-sm text-[#f8e7b3] tracking-wide">
+                      {isAdminRoute ? 'Instalar App do Gestor' : 'Instalar App Mauro Barber'}
+                    </h4>
+                  </div>
                   <button
                     onClick={handleDismiss}
-                    className="text-zinc-400 hover:text-white p-1 rounded-lg transition-colors"
+                    className="text-zinc-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
                     aria-label="Fechar"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
                 <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
-                  Adicione à sua tela inicial para agendar em 1 toque e receber notificações instantâneas.
+                  {isAdminRoute
+                    ? 'Acesso exclusivo direto ao painel e notificações de agendamentos em tempo real.'
+                    : 'Adicione à sua tela inicial para agendar em 1 toque e receber avisos no celular.'}
                 </p>
 
                 <div className="flex items-center gap-2 mt-3">
@@ -149,7 +172,7 @@ export default function PWAInstallPrompt() {
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa771c] hover:from-[#e5c055] hover:to-[#be8922] text-black font-semibold text-xs transition-all shadow-md active:scale-95 cursor-pointer"
                   >
                     {isIOS ? <Smartphone className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
-                    Instalar App
+                    {isAdminRoute ? 'Instalar App Gestor' : 'Instalar App'}
                   </button>
                   <button
                     onClick={handleDismiss}
@@ -176,7 +199,7 @@ export default function PWAInstallPrompt() {
             >
               <button
                 onClick={() => setShowIOSGuide(false)}
-                className="absolute top-4 right-4 text-zinc-400 hover:text-white p-2 rounded-full bg-white/5"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-white p-2 rounded-full bg-white/5 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -192,8 +215,12 @@ export default function PWAInstallPrompt() {
                   />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-[#f8e7b3]">Como instalar no iPhone</h3>
-                  <p className="text-xs text-zinc-400">Rápido e sem precisar da App Store</p>
+                  <h3 className="font-bold text-base text-[#f8e7b3]">
+                    {isAdminRoute ? 'Instalar App Gestor' : 'Instalar no iPhone'}
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    {isAdminRoute ? 'Salva direto na rota de login' : 'Rápido e sem precisar da App Store'}
+                  </p>
                 </div>
               </div>
 
@@ -221,7 +248,7 @@ export default function PWAInstallPrompt() {
                     3
                   </div>
                   <div className="flex-1">
-                    Toque em <strong className="text-white">Adicionar</strong> no canto superior direito e pronto! O ícone dourado do app já estará na sua tela inicial.
+                    Toque em <strong className="text-white">Adicionar</strong> no canto superior direito. O app abrirá direto no seu painel!
                   </div>
                 </div>
               </div>
@@ -239,4 +266,3 @@ export default function PWAInstallPrompt() {
     </>
   );
 }
-
