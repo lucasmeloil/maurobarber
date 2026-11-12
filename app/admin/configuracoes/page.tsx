@@ -2,35 +2,30 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
-import { Settings, Bell, Shield, Smartphone, Key, CheckCircle, AlertTriangle, Send, RefreshCw } from 'lucide-react';
+import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { Settings, Bell, Shield, Smartphone, Key, CheckCircle, AlertTriangle, Send, RefreshCw, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from '@/lib/vapid';
+import { useApp } from '@/app/context/AppContext';
 
 export default function AdminSettingsPage() {
-  const [serverKey, setServerKey] = useState('');
+  const { currentUser } = useApp();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const [testSending, setTestSending] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [registeredTokens, setRegisteredTokens] = useState<any[]>([]);
+  const [registeredSubscriptions, setRegisteredSubscriptions] = useState<any[]>([]);
 
-  // Carrega configurações do Firestore
+  // Carrega dispositivos cadastrados no Firestore
   const loadData = async () => {
     setLoading(true);
     try {
-      // 1. Busca chave FCM salva
-      const fcmDoc = await getDoc(doc(db, 'settings', 'fcm'));
-      if (fcmDoc.exists()) {
-        setServerKey(fcmDoc.data()?.serverKey || '');
-      }
-
-      // 2. Busca dispositivos cadastrados
-      const tokensSnap = await getDocs(collection(db, 'admin_fcm_tokens'));
-      const tokensList: any[] = [];
-      tokensSnap.forEach((d) => {
-        tokensList.push({ id: d.id, ...d.data() });
+      const subsSnap = await getDocs(collection(db, 'admin_webpush_subscriptions'));
+      const list: any[] = [];
+      subsSnap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() });
       });
-      setRegisteredTokens(tokensList);
+      setRegisteredSubscriptions(list);
     } catch (err: any) {
       console.error('Erro ao carregar configurações:', err);
     } finally {
@@ -42,27 +37,57 @@ export default function AdminSettingsPage() {
     loadData();
   }, []);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
+  // Ativa e inscreve o aparelho atual no Web Push Nativo VAPID
+  const handleRegisterThisDevice = async () => {
+    setRegistering(true);
     setStatusMessage(null);
-    try {
-      await setDoc(doc(db, 'settings', 'fcm'), {
-        serverKey: serverKey.trim(),
-        updatedAt: new Date().toISOString(),
-      }, { merge: true });
 
-      setStatusMessage({
-        text: 'Chave salva com sucesso no banco de dados! O sistema de push agora está ativo.',
-        type: 'success',
-      });
+    try {
+      if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+        throw new Error('Seu navegador não suporta Service Worker.');
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        throw new Error('Permissão de notificação negada pelo navegador. Ative nas permissões do site.');
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+      }
+
+      if (subscription) {
+        const subJson = subscription.toJSON();
+        const subKey = btoa(subscription.endpoint).slice(-40).replace(/[^a-zA-Z0-9]/g, '_');
+
+        await setDoc(doc(db, 'admin_webpush_subscriptions', subKey), {
+          endpoint: subJson.endpoint,
+          keys: subJson.keys,
+          userId: currentUser?.id || currentUser?.email || 'admin',
+          userEmail: currentUser?.email || 'admin@maurobarber.com.br',
+          updatedAt: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+        }, { merge: true });
+
+        setStatusMessage({
+          text: '✅ Este aparelho foi inscrito com sucesso! Ele agora receberá alertas com a tela bloqueada ou app minimizado.',
+          type: 'success',
+        });
+        await loadData();
+      }
     } catch (err: any) {
       setStatusMessage({
-        text: `Erro ao salvar no banco: ${err.message}`,
+        text: `Erro ao inscrever aparelho: ${err.message}`,
         type: 'error',
       });
     } finally {
-      setSaving(false);
+      setRegistering(false);
     }
   };
 
@@ -76,7 +101,7 @@ export default function AdminSettingsPage() {
         body: JSON.stringify({
           clientName: 'Teste Mauro Barber',
           serviceName: 'Corte Degrade Premium',
-          time: 'Agora',
+          time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           date: 'Hoje',
           barberName: 'Admin',
         }),
@@ -84,12 +109,12 @@ export default function AdminSettingsPage() {
       const data = await res.json();
       if (data.success && data.sent > 0) {
         setStatusMessage({
-          text: `Notificação enviada com sucesso para ${data.sent} aparelho(s)! Verifique seu celular.`,
+          text: `🎉 Notificação disparada com sucesso para ${data.sent} aparelho(s)! Bloqueie a tela ou minimize para testar.`,
           type: 'success',
         });
       } else {
         setStatusMessage({
-          text: data.message || 'Disparado, mas nenhum aparelho recebeu. Verifique a Server Key.',
+          text: data.message || 'Nenhum aparelho conectado. Clique no botão "Ativar Este Aparelho Agora" primeiro.',
           type: 'error',
         });
       }
@@ -109,14 +134,14 @@ export default function AdminSettingsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
         <div>
           <div className="flex items-center gap-2 text-[#d4af37] text-sm font-semibold mb-1">
-            <Settings className="w-4 h-4" />
-            SISTEMA & NOTIFICAÇÕES
+            <Zap className="w-4 h-4" />
+            WEB PUSH NATIVO (100% GRATUITO)
           </div>
           <h1 className="text-2xl md:text-3xl font-bold font-heading text-white">
-            Configurações de Push e Dispositivos
+            Notificações em Segundo Plano & Tela de Bloqueio
           </h1>
           <p className="text-zinc-400 text-sm mt-1">
-            Gerencie o recebimento de notificações flutuantes em segundo plano para o celular do gestor.
+            Receba notificações flutuantes instantâneas no seu celular mesmo com a tela apagada ou app minimizado.
           </p>
         </div>
         <button
@@ -147,94 +172,85 @@ export default function AdminSettingsPage() {
         </motion.div>
       )}
 
-      {/* Card 1: Chave de Servidor do Firebase (FCM) */}
-      <div className="bg-[#111116] border border-white/10 rounded-3xl p-6 md:p-8 space-y-6 shadow-xl">
+      {/* Card 1: Ação Rápida de Inscrição e Teste */}
+      <div className="bg-[#111116] border border-[#d4af37]/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-xl relative overflow-hidden">
         <div className="flex items-start gap-4">
-          <div className="p-3 rounded-2xl bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/20">
-            <Key className="w-6 h-6" />
+          <div className="p-3.5 rounded-2xl bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/30">
+            <Bell className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <h2 className="text-lg font-bold text-white">Chave do Servidor Firebase (Server Key)</h2>
-            <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-              Necessária para disparar notificações quando o app estiver minimizado ou com a tela apagada. Você pode salvar diretamente aqui no banco de dados ou adicionar a variável <code className="text-[#d4af37] bg-black/40 px-1 py-0.5 rounded">FIREBASE_SERVER_KEY</code> no painel do Netlify.
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-1.5">
+              Protocolo VAPID Ativo
+            </div>
+            <h2 className="text-lg font-bold text-white">Ativar Notificações no seu Celular</h2>
+            <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+              Clique no botão abaixo pelo celular do gestor para vincular o aparelho à central de agendamentos. Quando qualquer cliente agendar, seu telefone acenderá e vibrará na mesma hora.
             </p>
           </div>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-4 pt-2">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-2">
-              Server Key (Firebase Cloud Messaging)
-            </label>
-            <input
-              type="text"
-              value={serverKey}
-              onChange={(e) => setServerKey(e.target.value)}
-              placeholder="Cole aqui a Server Key (ex: AAAA...)"
-              className="w-full bg-[#070709] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#d4af37] transition-colors"
-            />
-          </div>
+        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <button
+            onClick={handleRegisterThisDevice}
+            disabled={registering}
+            className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa771c] hover:from-[#e5c055] hover:to-[#be8922] text-black font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
+          >
+            <Smartphone className="w-4 h-4" />
+            {registering ? 'Inscrevendo Celular...' : 'Ativar Este Aparelho Agora'}
+          </button>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#aa771c] hover:from-[#e5c055] hover:to-[#be8922] text-black font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
-            >
-              <Shield className="w-4 h-4" />
-              {saving ? 'Gravando no Banco...' : 'Gravar Diretamente no Banco'}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleTestNotification}
-              disabled={testSending}
-              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-            >
-              <Send className="w-4 h-4 text-[#d4af37]" />
-              {testSending ? 'Disparando...' : 'Testar Notificação no Celular'}
-            </button>
-          </div>
-        </form>
+          <button
+            type="button"
+            onClick={handleTestNotification}
+            disabled={testSending}
+            className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer border border-white/10"
+          >
+            <Send className="w-4 h-4 text-[#d4af37]" />
+            {testSending ? 'Disparando Teste...' : 'Testar Notificação (Bloqueie a Tela)'}
+          </button>
+        </div>
       </div>
 
-      {/* Card 2: Aparelhos Cadastrados */}
+      {/* Card 2: Aparelhos Ativos Conectados */}
       <div className="bg-[#111116] border border-white/10 rounded-3xl p-6 md:p-8 space-y-4 shadow-xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-3 rounded-2xl bg-white/5 text-zinc-300 border border-white/5">
-              <Smartphone className="w-6 h-6 text-[#d4af37]" />
+              <Shield className="w-6 h-6 text-[#d4af37]" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Dispositivos Conectados</h2>
+              <h2 className="text-lg font-bold text-white">Celulares do Gestor Conectados</h2>
               <p className="text-xs text-zinc-400">
-                Aparelhos que concederam permissão e receberão os alertas em tempo real.
+                Dispositivos habilitados para receber alertas mesmo com a tela apagada.
               </p>
             </div>
           </div>
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/30">
-            {registeredTokens.length} dispositivo(s)
+            {registeredSubscriptions.length} conectado(s)
           </span>
         </div>
 
         <div className="divide-y divide-white/5 pt-2">
-          {registeredTokens.length === 0 ? (
-            <div className="py-6 text-center text-xs text-zinc-500">
-              Nenhum celular conectado ainda. Abra o app no seu telefone pela rota de login e clique em "Permitir Notificações".
+          {registeredSubscriptions.length === 0 ? (
+            <div className="py-8 text-center text-xs text-zinc-400 space-y-2">
+              <p>Nenhum aparelho conectado ainda.</p>
+              <p className="text-zinc-500 text-[11px]">
+                Abra este painel no seu celular e clique no botão dourado <strong>"Ativar Este Aparelho Agora"</strong> acima.
+              </p>
             </div>
           ) : (
-            registeredTokens.map((t, idx) => (
-              <div key={t.id || idx} className="py-3 flex items-center justify-between gap-4 text-xs">
+            registeredSubscriptions.map((sub, idx) => (
+              <div key={sub.id || idx} className="py-3 flex items-center justify-between gap-4 text-xs">
                 <div className="min-w-0">
                   <div className="font-semibold text-white truncate">
-                    {t.userEmail || t.userId || 'Administrador Mauro Barber'}
+                    {sub.userEmail || sub.userId || 'Celular do Gestor'}
                   </div>
                   <div className="text-zinc-500 truncate text-[11px] mt-0.5">
-                    Atualizado em: {t.updatedAt ? new Date(t.updatedAt).toLocaleString('pt-BR') : 'Recentemente'}
+                    Atualizado em: {sub.updatedAt ? new Date(sub.updatedAt).toLocaleString('pt-BR') : 'Recentemente'}
                   </div>
                 </div>
-                <span className="text-[10px] text-emerald-400 font-medium px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
-                  Ativo
+                <span className="text-[10px] text-emerald-400 font-medium px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0">
+                  Conectado à Tela de Bloqueio
                 </span>
               </div>
             ))
@@ -244,4 +260,3 @@ export default function AdminSettingsPage() {
     </div>
   );
 }
-

@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, deleteDoc } from 'firebase/firestore';
+import webpush from 'web-push';
+import { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } from '@/lib/vapid';
+
+// Configuração do VAPID para Web Push Nativo Universal (Google Chrome, Android, Apple iOS Safari)
+webpush.setVapidDetails(
+  VAPID_SUBJECT,
+  VAPID_PUBLIC_KEY,
+  VAPID_PRIVATE_KEY
+);
 
 export async function POST(request: Request) {
   try {
@@ -10,27 +19,61 @@ export async function POST(request: Request) {
     const notifTitle = '💈 Novo Agendamento Mauro Barber!';
     const notifBody = `${clientName || 'Cliente'} agendou ${serviceName || 'Corte'} para ${date || 'hoje'} às ${time || 'horário marcado'}${barberName ? ` (${barberName})` : ''}.`;
 
-    // 1. Busca todos os tokens dos celulares/aparelhos dos administradores
-    const tokensSnapshot = await getDocs(collection(db, 'admin_fcm_tokens'));
-    const tokens: string[] = [];
+    const pushPayload = JSON.stringify({
+      title: notifTitle,
+      body: notifBody,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/favicon-32x32.png',
+      data: {
+        url: '/admin/agendamentos',
+        clientName: clientName || '',
+        time: time || '',
+        date: date || '',
+      },
+    });
 
-    tokensSnapshot.forEach((docSnapshot) => {
-      const data = docSnapshot.data();
-      if (data.token && typeof data.token === 'string') {
-        tokens.push(data.token);
+    // 1. Canal Principal: Disparo Nativo Web Push VAPID (100% Gratuito & Autônomo)
+    const webPushSnap = await getDocs(collection(db, 'admin_webpush_subscriptions'));
+    let webPushSuccessCount = 0;
+
+    const webPushPromises = webPushSnap.docs.map(async (docSnap) => {
+      const sub = docSnap.data();
+      if (!sub.endpoint || !sub.keys) return null;
+
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: {
+              p256dh: sub.keys.p256dh,
+              auth: sub.keys.auth,
+            },
+          },
+          pushPayload,
+          {
+            urgency: 'high',
+            TTL: 60 * 60 * 24, // 24 horas
+          }
+        );
+        webPushSuccessCount++;
+        return { id: docSnap.id, ok: true };
+      } catch (err: any) {
+        console.error(`[VAPID Push] Erro ao enviar para ${docSnap.id}:`, err?.statusCode || err?.message);
+        // Se a inscrição expirou no celular (410 Gone ou 404), remove do banco
+        if (err?.statusCode === 410 || err?.statusCode === 404) {
+          try {
+            await deleteDoc(doc(db, 'admin_webpush_subscriptions', docSnap.id));
+          } catch (delErr) {
+            console.log('Erro ao remover sub expirada:', delErr);
+          }
+        }
+        return { id: docSnap.id, ok: false, error: err?.message };
       }
     });
 
-    if (tokens.length === 0) {
-      console.log('[NotifyAdmin] Nenhum token de administrador registrado na coleção admin_fcm_tokens.');
-      return NextResponse.json({
-        success: true,
-        sent: 0,
-        message: 'Nenhum aparelho de admin registrado para receber push ainda.',
-      });
-    }
+    await Promise.all(webPushPromises);
 
-    // 2. Busca a Server Key do FCM (via env ou Firestore em settings/fcm)
+    // 2. Canal Secundário: Legado FCM (caso exista chave do Firebase configurada)
     let fcmServerKey = process.env.FIREBASE_SERVER_KEY || '';
     if (!fcmServerKey) {
       try {
@@ -39,72 +82,74 @@ export async function POST(request: Request) {
           fcmServerKey = settingsDoc.data()?.serverKey || '';
         }
       } catch (settingsErr) {
-        console.log('[NotifyAdmin] Aviso ao ler settings/fcm:', settingsErr);
+        // Ignora
       }
     }
 
-    if (!fcmServerKey) {
-      console.log('[NotifyAdmin] Chave de Servidor FCM (FIREBASE_SERVER_KEY) não configurada. Notificação gravada para envio local.');
-      return NextResponse.json({
-        success: true,
-        sent: 0,
-        tokensFound: tokens.length,
-        message: 'Tokens encontrados, mas a FIREBASE_SERVER_KEY ainda não foi definida nas variáveis de ambiente ou no Firestore.',
+    let fcmSuccessCount = 0;
+    if (fcmServerKey && fcmServerKey.startsWith('AAAA')) {
+      const fcmTokensSnap = await getDocs(collection(db, 'admin_fcm_tokens'));
+      const fcmTokens: string[] = [];
+      fcmTokensSnap.forEach((d) => {
+        const data = d.data();
+        if (data.token) fcmTokens.push(data.token);
       });
+
+      if (fcmTokens.length > 0) {
+        const fcmPromises = fcmTokens.map(async (token) => {
+          try {
+            const res = await fetch('https://fcm.googleapis.com/fcm/send', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `key=${fcmServerKey}`,
+              },
+              body: JSON.stringify({
+                to: token,
+                notification: {
+                  title: notifTitle,
+                  body: notifBody,
+                  icon: '/icons/icon-192x192.png',
+                  badge: '/icons/favicon-32x32.png',
+                  click_action: '/admin/agendamentos',
+                },
+                data: {
+                  url: '/admin/agendamentos',
+                  clientName: clientName || '',
+                  time: time || '',
+                },
+                priority: 'high',
+              }),
+            });
+            if (res.ok) fcmSuccessCount++;
+          } catch (e) {
+            // Ignora
+          }
+        });
+        await Promise.all(fcmPromises);
+      }
     }
 
-    // 3. Dispara a notificação Push para cada aparelho cadastrado
-    const sendPromises = tokens.map(async (token) => {
-      try {
-        const res = await fetch('https://fcm.googleapis.com/fcm/send', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `key=${fcmServerKey}`,
-          },
-          body: JSON.stringify({
-            to: token,
-            notification: {
-              title: notifTitle,
-              body: notifBody,
-              icon: '/icons/icon-192x192.png',
-              badge: '/icons/favicon-32x32.png',
-              click_action: '/admin/agendamentos',
-            },
-            data: {
-              url: '/admin/agendamentos',
-              clientName: clientName || '',
-              time: time || '',
-              date: date || '',
-            },
-            priority: 'high',
-          }),
-        });
-
-        const result = await res.json();
-        return { token, result, ok: res.ok };
-      } catch (err: any) {
-        return { token, error: err.message, ok: false };
-      }
-    });
-
-    const results = await Promise.all(sendPromises);
-    const successfulSends = results.filter((r) => r.ok).length;
-
-    console.log(`[NotifyAdmin] Enviado com sucesso para ${successfulSends}/${tokens.length} dispositivos de administradores.`);
+    const totalSent = webPushSuccessCount + fcmSuccessCount;
+    console.log(`[NotifyAdmin] Web Push entregue: ${webPushSuccessCount} aparelho(s), FCM entregue: ${fcmSuccessCount}.`);
 
     return NextResponse.json({
       success: true,
-      sent: successfulSends,
-      total: tokens.length,
-      results,
+      sent: totalSent,
+      webPushSent: webPushSuccessCount,
+      fcmSent: fcmSuccessCount,
+      totalRegistered: webPushSnap.size,
+      message: totalSent > 0 
+        ? `Notificação entregue com sucesso em segundo plano para ${totalSent} aparelho(s)!`
+        : webPushSnap.size === 0
+          ? 'Abra o painel admin no seu celular uma vez para registrar seu aparelho.'
+          : 'Disparo efetuado.',
     });
   } catch (error: any) {
-    console.error('[NotifyAdmin] Erro ao disparar notificações de agendamento:', error);
+    console.error('[NotifyAdmin] Erro interno:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Erro interno no envio de push' },
       { status: 500 }
     );
   }
 }
-
